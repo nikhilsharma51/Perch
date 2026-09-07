@@ -29,3 +29,6 @@ Thumbs.db
 
 # Docker (optional — some teams keep volumes out of the repo dir entirely)
 docker-compose.yaml
+
+design.md
+plan.md
