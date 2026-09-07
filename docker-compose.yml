@@ -3,7 +3,7 @@ services:
     image: postgres:16
     environment:
       POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: studioslot
+      POSTGRES_DB: perch
     ports:
       - "5432:5432"
     volumes:

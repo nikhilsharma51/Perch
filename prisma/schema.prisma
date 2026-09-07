@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  members   OrgMembership[]
+  spaces    Space[]
+}
+
+model User {
+  id           String   @id @default(uuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+
+  memberships  OrgMembership[]
+  bookings     Booking[]        @relation("RenterBookings")
+}
+
+model OrgMembership {
+  id        String   @id @default(uuid())
+  orgId     String
+  userId    String
+  role      Role     // owner | staff
+
+  org       Organization @relation(fields: [orgId], references: [id])
+  user      User         @relation(fields: [userId], references: [id])
+
+  @@unique([orgId, userId])
+}
+
+enum Role {
+  owner
+  staff
+}
+
+model Space {
+  id          String   @id @default(uuid())
+  orgId       String
+  name        String
+  type        String   // podcast | photography | gaming
+  hourlyRate  Int      // in smallest currency unit (paise/cents)
+  depositRate Int      // deposit amount required to confirm
+  capacity    Int
+  imageUrl    String?
+  createdAt   DateTime @default(now())
+
+  org         Organization @relation(fields: [orgId], references: [id])
+  bookings    Booking[]
+}
+
+model Booking {
+  id           String        @id @default(uuid())
+  spaceId      String
+  renterUserId String
+  startTime    DateTime
+  endTime      DateTime
+  status       BookingStatus @default(pending)
+  amount       Int
+  depositPaid  Int           @default(0)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  space        Space @relation(fields: [spaceId], references: [id])
+  renter       User  @relation("RenterBookings", fields: [renterUserId], references: [id])
+
+  history      BookingStatusHistory[]
+  payments     Payment[]
+
+  @@index([spaceId, startTime])
+}
+
+enum BookingStatus {
+  pending
+  confirmed
+  checked_in
+  completed
+  cancelled
+  no_show
+}
+
+model BookingStatusHistory {
+  id         String   @id @default(uuid())
+  bookingId  String
+  fromStatus BookingStatus?
+  toStatus   BookingStatus
+  changedBy  String   // userId or "system"
+  changedAt  DateTime @default(now())
+
+  booking    Booking @relation(fields: [bookingId], references: [id])
+}
+
+model Payment {
+  id                String   @id @default(uuid())
+  bookingId         String
+  stripePaymentId   String   @unique
+  amount            Int
+  type              String   // deposit | refund
+  status            String   // succeeded | failed | pending
+  createdAt         DateTime @default(now())
+
+  booking           Booking @relation(fields: [bookingId], references: [id])
+}

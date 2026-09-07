@@ -1,14 +1,29 @@
 {
   "name": "perch",
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "version": "1.0.0",
   "main": "index.js",
-  "private":"true",
+  "private": "true",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:studio": "prisma studio",
+    "db:reset": "prisma migrate reset"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "",
+  "devDependencies": {
+    "prisma": "7.10.0"
+  },
+  "dependencies": {
+    "@prisma/client": "7.10.0",
+    "dotenv": "^17.4.2"
+  }
 }
