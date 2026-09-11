@@ -1,5 +1,4 @@
 {
-  "extends": "../../tsconfig.json",
   "compilerOptions": {
     "target": "ES2022",
     "module": "commonjs",
@@ -11,13 +10,15 @@
     "declaration": true,
     "declarationMap": true,
     "sourceMap": true,
-    "moduleResolution": "node",
-    "baseUrl": ".",
-    "paths": {
-      "@perch/shared": ["../../packages/shared/src"],
-      "@perch/shared/*": ["../../packages/shared/src/*"]
-    }
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "resolveJsonModule": true
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist"]
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist"],
+  "references": [
+    {
+      "path": "../../packages/shared"
+    }
+  ]
 }

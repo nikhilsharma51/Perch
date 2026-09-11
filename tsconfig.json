@@ -1,4 +1,13 @@
 {
+  "files": [],
+  "references": [
+    {
+      "path": "packages/shared"
+    },
+    {
+      "path": "apps/api"
+    }
+  ],
   "compilerOptions": {
     "target": "ES2022",
     "module": "commonjs",
@@ -8,13 +17,6 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
-    "moduleResolution": "node",
-    "baseUrl": ".",
-    "paths": {
-      "@perch/shared": ["packages/shared/src"],
-      "@perch/shared/*": ["packages/shared/src/*"],
-      "@perch/api": ["apps/api/src"],
-      "@perch/api/*": ["apps/api/src/*"]
-    }
+    "moduleResolution": "bundler"
   }
 }

@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-const BOOKING_STATUSES = ["pending", "confirmed", "checked_in", "completed", "cancelled", "no_show"] as const;
-
 export const createBookingSchema = z.object({
   spaceId: z.string().uuid("Space ID must be a valid UUID"),
   renterUserId: z.string().uuid("Renter user ID must be a valid UUID"),
@@ -14,7 +12,7 @@ export const createBookingSchema = z.object({
 });
 
 export const transitionBookingSchema = z.object({
-  toStatus: z.enum(BOOKING_STATUSES, { errorMap: () => ({ message: `Booking status must be one of: ${BOOKING_STATUSES.join(", ")}` }) }),
+  toStatus: z.enum(["pending", "confirmed", "checked_in", "completed", "cancelled", "no_show"]),
   changedBy: z.string().min(1, "ChangedBy user ID is required"),
 });
 
