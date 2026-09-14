@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 export const inviteStaffSchema = z.object({
-  orgId: z.string().uuid("Organization ID must be a valid UUID"),
+  // orgId is NOT required in body - it comes from URL params (req.params.orgId)
+  // This prevents clients from spoofing the orgId
   email: z.string().email("Invalid email address"),
   role: z.enum(["owner", "staff"]),
 });

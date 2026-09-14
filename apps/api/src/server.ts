@@ -4,6 +4,9 @@ import cors from "cors";
 import helmet from "helmet";
 import authRoutes from "./routes/auth";
 import userRoutes from "./routes/users";
+import organizationRoutes from "./routes/organizations";
+import spaceRoutes from "./routes/spaces";
+import staffRoutes from "./routes/staff";
 
 
 const app = express();
@@ -19,6 +22,11 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 // Routes
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/organizations", organizationRoutes);
+
+// Nested routes - spaces and staff are scoped under organizations
+app.use("/api/organizations/:orgId/spaces", spaceRoutes);
+app.use("/api/organizations/:orgId/staff", staffRoutes);
 
 // Error handling middleware
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

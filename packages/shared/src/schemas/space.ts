@@ -1,7 +1,8 @@
 import { z } from "zod";
 
 export const createSpaceSchema = z.object({
-  orgId: z.string().uuid("Organization ID must be a valid UUID"),
+  // orgId is NOT required in body - it comes from URL params (req.params.orgId)
+  // This prevents clients from spoofing the orgId
   name: z.string().min(1, "Space name is required").max(255, "Space name must be less than 255 characters"),
   type: z.enum(["podcast", "photography", "gaming"]),
   hourlyRate: z.number().int("Hourly rate must be an integer").positive("Hourly rate must be positive"),
