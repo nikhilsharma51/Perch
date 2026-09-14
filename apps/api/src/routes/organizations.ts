@@ -13,7 +13,6 @@ router.post("/", authMiddleware, validate(createOrgSchema), async (req, res) => 
     const { name, slug } = req.body;
     const userId = req.user!.userId;
 
-    // Check if slug already exists
     const existingOrg = await prisma.organization.findUnique({
       where: { slug },
     });
@@ -151,7 +150,6 @@ router.put(
       const orgId = req.params.orgId;
       const updates = req.body;
 
-      // If updating slug, check if it's available
       if (updates.slug) {
         const existingOrg = await prisma.organization.findUnique({
           where: { slug: updates.slug },

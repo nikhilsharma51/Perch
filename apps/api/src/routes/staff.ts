@@ -8,13 +8,7 @@ import { prisma } from "../lib/prisma";
 
 const router = Router({ mergeParams: true }); // Inherit :orgId from parent router
 
-/**
- * POST /api/organizations/:orgId/staff/invite
- * Invite a user to join the organization as staff (owner only)
- * 
- * Note: Currently requires user to exist (have signed up)
- * Future: Send email invite for non-existing users
- */
+
 router.post(
   "/invite",
   authMiddleware,
@@ -26,7 +20,7 @@ router.post(
       const orgId = req.params.orgId;
       const { email, role } = req.body;
 
-      // Look up user by email
+      
       const user = await prisma.user.findUnique({
         where: { email },
       });
@@ -39,7 +33,7 @@ router.post(
         });
       }
 
-      // Check if user is already a member
+      
       const existingMembership = await prisma.orgMembership.findUnique({
         where: {
           orgId_userId: {
@@ -92,12 +86,7 @@ router.post(
   }
 );
 
-/**
- * GET /api/organizations/:orgId/staff
- * List all staff members in the organization
- * 
- * Security: Both owner and staff can view members
- */
+
 router.get("/", authMiddleware, requireOrgAccess, async (req, res) => {
   try {
     const orgId = req.params.orgId;
@@ -114,7 +103,7 @@ router.get("/", authMiddleware, requireOrgAccess, async (req, res) => {
           },
         },
       },
-      orderBy: { role: "asc" }, // Owners first, then staff
+      orderBy: { role: "asc" },
     });
 
     const staff = memberships.map((m) => ({
@@ -139,14 +128,7 @@ router.get("/", authMiddleware, requireOrgAccess, async (req, res) => {
   }
 });
 
-/**
- * DELETE /api/organizations/:orgId/staff/:userId
- * Remove a staff member from the organization (owner only)
- * 
- * Security:
- * - Cannot remove yourself
- * - Cannot remove the owner
- */
+
 router.delete(
   "/:userId",
   authMiddleware,
@@ -157,7 +139,7 @@ router.delete(
       const { orgId, userId } = req.params;
       const currentUserId = req.user!.userId;
 
-      // Business rule: Cannot remove yourself
+
       if (userId === currentUserId) {
         return res.status(403).json({
           error: "Cannot remove yourself from the organization",
@@ -165,7 +147,7 @@ router.delete(
         });
       }
 
-      // Look up the target membership
+
       const targetMembership = await prisma.orgMembership.findUnique({
         where: {
           orgId_userId: {
@@ -182,7 +164,6 @@ router.delete(
         });
       }
 
-      // Business rule: Cannot remove owner
       if (targetMembership.role === "owner") {
         return res.status(403).json({
           error: "Cannot remove organization owner",
@@ -190,7 +171,6 @@ router.delete(
         });
       }
 
-      // Delete the membership
       await prisma.orgMembership.delete({
         where: {
           orgId_userId: {

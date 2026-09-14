@@ -4,10 +4,6 @@ import { prisma } from "../lib/prisma";
 
 const router = Router();
 
-/**
- * GET /api/users/me
- * Protected route - returns current authenticated user info
- */
 router.get("/me", authMiddleware, async (req: AuthRequest, res) => {
   try {
     if (!req.user) {

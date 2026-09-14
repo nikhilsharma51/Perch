@@ -32,12 +32,6 @@ router.get("/", authMiddleware, requireOrgAccess, async (req, res) => {
   }
 });
 
-/**
- * POST /api/organizations/:orgId/spaces
- * Create a new space (owner only)
- * 
- * Security: orgId from URL params, NOT from body
- */
 router.post(
   "/",
   authMiddleware,
@@ -48,7 +42,6 @@ router.post(
     try {
       const orgId = req.params.orgId;
       
-      // Extract space data but ALWAYS override orgId with validated one from params
       const { name, type, hourlyRate, depositRate, capacity, imageUrl } = req.body;
 
       const space = await prisma.space.create({
@@ -78,9 +71,7 @@ router.post(
 );
 
 /**
- * GET /api/organizations/:orgId/spaces/:spaceId
- * Get a single space
- * 
+ 
  * Security: CRITICAL multi-tenancy check - verify space belongs to org
  */
 router.get("/:spaceId", authMiddleware, requireOrgAccess, async (req, res) => {
@@ -114,8 +105,7 @@ router.get("/:spaceId", authMiddleware, requireOrgAccess, async (req, res) => {
 });
 
 /**
- * PUT /api/organizations/:orgId/spaces/:spaceId
- * Update a space (owner only)
+
  * 
  * Security: Verify space belongs to org before updating
  */
@@ -130,7 +120,6 @@ router.put(
       const { orgId, spaceId } = req.params;
       const updates = req.body;
 
-      // First, verify space exists and belongs to this org
       const existingSpace = await prisma.space.findFirst({
         where: {
           id: spaceId,
@@ -145,7 +134,6 @@ router.put(
         });
       }
 
-      // Update the space
       const space = await prisma.space.update({
         where: { id: spaceId },
         data: updates,
@@ -166,7 +154,7 @@ router.put(
 );
 
 /**
- * DELETE /api/organizations/:orgId/spaces/:spaceId
+
  * Soft-delete a space (owner only)
  * 
  * Note: Returns 501 Not Implemented - deferred until we add isActive field
