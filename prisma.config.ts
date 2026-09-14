@@ -1,3 +1,4 @@
+import "dotenv/config";
 import { defineConfig, env } from "prisma/config";
 
 export default defineConfig({
@@ -6,6 +7,8 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: env("DATABASE_URL"),
+    // Use DIRECT_URL for Prisma CLI commands (migrations, studio, introspection)
+    // The application uses DATABASE_URL (pooled) via the Neon adapter
+    url: env("DIRECT_URL"),
   },
 });

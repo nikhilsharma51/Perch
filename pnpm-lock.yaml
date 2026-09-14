@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@prisma/client':
-        specifier: 7.10.0
-        version: 7.10.0(prisma@7.10.0(@types/react-dom@19.2.7(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)(typescript@7.0.2))(typescript@7.0.2)
       dotenv:
         specifier: ^17.4.2
         version: 17.4.2
@@ -24,7 +21,7 @@ importers:
       '@perch/shared':
         specifier: workspace:*
         version: link:../../packages/shared
-      '@prisma/adapter-pg':
+      '@prisma/adapter-neon':
         specifier: ^7.10.0
         version: 7.10.0
       '@prisma/client':
@@ -676,6 +673,10 @@ packages:
       '@emnapi/core': ^1.7.1 || ^2.0.0-alpha.4
       '@emnapi/runtime': ^1.7.1 || ^2.0.0-alpha.4
 
+  '@neondatabase/serverless@1.1.0':
+    resolution: {integrity: sha512-r3ZZhRjEcfEdKIZnoB1RusNgvHuaBRqfCzV4Gi+5A9yUX0S4HTws/ASWqt13wL4y4I+0rqsWGdA2w7EQXHi3+Q==}
+    engines: {node: '>=19.0.0'}
+
   '@next/env@16.3.4':
     resolution: {integrity: sha512-cjWZnUUa6jZq2kFaNe/ZyJdZonOZ/QoN0Zka2nz/FLOrfx14pQuM9c5RaSVkWMqgdt4ksgPAMWPyHSs/CyV48Q==}
 
@@ -750,8 +751,13 @@ packages:
     resolution: {integrity: sha512-nn5ozdjYQpUCZlWGuxcJY/KpxkWQs4DcbMCmKojjyrYDEAGy4Ce19NN4v5MduafTwJlbKc99UA8YhSVqq9yPZA==}
     engines: {node: '>=12.4.0'}
 
+<<<<<<< HEAD
   '@prisma/adapter-pg@7.10.0':
     resolution: {integrity: sha512-N7nwSor0HO1Kz6xBv0TPAjAPysKK0fac6p4fVN3ensLOuzc/83Fgmln5k92eK/cvzqdkSR/2kkAqlbcdwVrwpw==}
+=======
+  '@prisma/adapter-neon@7.10.0':
+    resolution: {integrity: sha512-2MbMamV0URbYwQ7JFZkWdHydrqqtc+GT2WbTw3VoCQmiecGYAvn6y7vkVDNR7CL/w8QOs4bCMLrhyY1Crxzoyg==}
+>>>>>>> 61828be (chore : migrate db from postgres docker to neon)
 
   '@prisma/client-runtime-utils@7.10.0':
     resolution: {integrity: sha512-cnCy7lUV8/CctgKVEmqAbSLAmwqJdE/qAlqTBk/0NDk59zEb2cZ0M0M0E4vVPnqbSEYudRroQDvOWfUZH6RIfw==}
@@ -3761,6 +3767,8 @@ snapshots:
       '@tybys/wasm-util': 0.10.3
     optional: true
 
+  '@neondatabase/serverless@1.1.0': {}
+
   '@next/env@16.3.4': {}
 
   '@next/eslint-plugin-next@16.3.4(eslint@9.39.5(jiti@2.7.0))':
@@ -3808,6 +3816,7 @@ snapshots:
 
   '@nolyfill/is-core-module@1.0.39': {}
 
+<<<<<<< HEAD
   '@prisma/adapter-pg@7.10.0':
     dependencies:
       '@prisma/driver-adapter-utils': 7.10.0
@@ -3816,6 +3825,13 @@ snapshots:
       postgres-array: 3.0.4
     transitivePeerDependencies:
       - pg-native
+=======
+  '@prisma/adapter-neon@7.10.0':
+    dependencies:
+      '@neondatabase/serverless': 1.1.0
+      '@prisma/driver-adapter-utils': 7.10.0
+      postgres-array: 3.0.4
+>>>>>>> 61828be (chore : migrate db from postgres docker to neon)
 
   '@prisma/client-runtime-utils@7.10.0': {}
 
@@ -6009,15 +6025,30 @@ snapshots:
   pg-cloudflare@1.4.0:
     optional: true
 
+<<<<<<< HEAD
   pg-connection-string@2.14.0: {}
 
   pg-int8@1.0.1: {}
+=======
+  pg-connection-string@2.14.0:
+    optional: true
+
+  pg-int8@1.0.1:
+    optional: true
+>>>>>>> 61828be (chore : migrate db from postgres docker to neon)
 
   pg-pool@3.14.0(pg@8.23.0):
     dependencies:
       pg: 8.23.0
+<<<<<<< HEAD
 
   pg-protocol@1.16.0: {}
+=======
+    optional: true
+
+  pg-protocol@1.16.0:
+    optional: true
+>>>>>>> 61828be (chore : migrate db from postgres docker to neon)
 
   pg-types@2.2.0:
     dependencies:
@@ -6026,6 +6057,10 @@ snapshots:
       postgres-bytea: 1.0.1
       postgres-date: 1.0.7
       postgres-interval: 1.2.0
+<<<<<<< HEAD
+=======
+    optional: true
+>>>>>>> 61828be (chore : migrate db from postgres docker to neon)
 
   pg@8.23.0:
     dependencies:
@@ -6036,10 +6071,18 @@ snapshots:
       pgpass: 1.0.5
     optionalDependencies:
       pg-cloudflare: 1.4.0
+<<<<<<< HEAD
+=======
+    optional: true
+>>>>>>> 61828be (chore : migrate db from postgres docker to neon)
 
   pgpass@1.0.5:
     dependencies:
       split2: 4.2.0
+<<<<<<< HEAD
+=======
+    optional: true
+>>>>>>> 61828be (chore : migrate db from postgres docker to neon)
 
   picocolors@1.1.1: {}
 
@@ -6067,6 +6110,7 @@ snapshots:
       picocolors: 1.1.1
       source-map-js: 1.2.1
 
+<<<<<<< HEAD
   postgres-array@2.0.0: {}
 
   postgres-array@3.0.4: {}
@@ -6074,10 +6118,26 @@ snapshots:
   postgres-bytea@1.0.1: {}
 
   postgres-date@1.0.7: {}
+=======
+  postgres-array@2.0.0:
+    optional: true
+
+  postgres-array@3.0.4: {}
+
+  postgres-bytea@1.0.1:
+    optional: true
+
+  postgres-date@1.0.7:
+    optional: true
+>>>>>>> 61828be (chore : migrate db from postgres docker to neon)
 
   postgres-interval@1.2.0:
     dependencies:
       xtend: 4.0.2
+<<<<<<< HEAD
+=======
+    optional: true
+>>>>>>> 61828be (chore : migrate db from postgres docker to neon)
 
   postgres@3.4.7: {}
 
@@ -6372,7 +6432,12 @@ snapshots:
 
   source-map-js@1.2.1: {}
 
+<<<<<<< HEAD
   split2@4.2.0: {}
+=======
+  split2@4.2.0:
+    optional: true
+>>>>>>> 61828be (chore : migrate db from postgres docker to neon)
 
   sqlstring@2.3.3: {}
 
@@ -6675,7 +6740,12 @@ snapshots:
 
   wrappy@1.0.2: {}
 
+<<<<<<< HEAD
   xtend@4.0.2: {}
+=======
+  xtend@4.0.2:
+    optional: true
+>>>>>>> 61828be (chore : migrate db from postgres docker to neon)
 
   yallist@3.1.1: {}
 
