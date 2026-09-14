@@ -8,12 +8,6 @@ import { prisma } from "../lib/prisma";
 
 const router = Router();
 
-/**
- * POST /api/organizations
- * Create a new organization with the creator as owner
- * 
- * Security: Transactional creation ensures org + membership are atomic
- */
 router.post("/", authMiddleware, validate(createOrgSchema), async (req, res) => {
   try {
     const { name, slug } = req.body;
@@ -67,10 +61,7 @@ router.post("/", authMiddleware, validate(createOrgSchema), async (req, res) => 
   }
 });
 
-/**
- * GET /api/organizations
- * List all organizations the user is a member of
- */
+
 router.get("/", authMiddleware, async (req, res) => {
   try {
     const userId = req.user!.userId;
@@ -104,10 +95,7 @@ router.get("/", authMiddleware, async (req, res) => {
   }
 });
 
-/**
- * GET /api/organizations/:orgId
- * Get a single organization (user must be a member)
- */
+
 router.get("/:orgId", authMiddleware, requireOrgAccess, async (req, res) => {
   try {
     const orgId = req.params.orgId;
@@ -151,10 +139,7 @@ router.get("/:orgId", authMiddleware, requireOrgAccess, async (req, res) => {
   }
 });
 
-/**
- * PUT /api/organizations/:orgId
- * Update organization (owner only)
- */
+
 router.put(
   "/:orgId",
   authMiddleware,

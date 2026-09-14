@@ -8,12 +8,7 @@ import { prisma } from "../lib/prisma";
 
 const router = Router({ mergeParams: true }); // Inherit :orgId from parent router
 
-/**
- * GET /api/organizations/:orgId/spaces
- * List all spaces for an organization
- * 
- * Security: Both owner and staff can view spaces
- */
+
 router.get("/", authMiddleware, requireOrgAccess, async (req, res) => {
   try {
     const orgId = req.params.orgId;
