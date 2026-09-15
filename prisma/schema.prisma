@@ -57,6 +57,22 @@ model Space {
 
   org         Organization @relation(fields: [orgId], references: [id])
   bookings    Booking[]
+  openHours   SpaceOpenHours[]
+}
+
+model SpaceOpenHours {
+  id        String   @id @default(uuid())
+  spaceId   String
+  dayOfWeek Int      // 0 (Sunday) to 6 (Saturday)
+  startTime String   // HH:mm format, e.g., "09:00"
+  endTime   String   // HH:mm format, e.g., "18:00"
+  isClosed  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  space     Space @relation(fields: [spaceId], references: [id])
+
+  @@unique([spaceId, dayOfWeek])
 }
 
 model Booking {

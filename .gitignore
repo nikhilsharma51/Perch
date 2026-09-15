@@ -34,3 +34,6 @@ design.md
 test-phase-4.mjs
 PHASE_5_PART_1_COMPLETE.md
 
+availability.test.ts
+
+stateMachine.test.ts
