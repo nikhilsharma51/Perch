@@ -25,7 +25,6 @@ export async function getAvailableSlots(
   // Get day of week (0 = Sunday, 6 = Saturday)
   const dayOfWeek = date.getUTCDay();
 
-  // Step 1: Fetch open-hours rule for this day
   const openHours = await prisma.spaceOpenHours.findUnique({
     where: {
       spaceId_dayOfWeek: {
@@ -35,19 +34,17 @@ export async function getAvailableSlots(
     },
   });
 
-  // If space is closed this day or not found, return empty slots
   if (!openHours || openHours.isClosed) {
     return [];
   }
 
-  // Step 2: Generate all 30-minute slots for this day
   const slots = generateSlots(date, openHours.startTime, openHours.endTime);
 
   if (slots.length === 0) {
     return [];
   }
 
-  // Step 3: Fetch all active bookings for this space on this date
+ 
   const bookings = await prisma.booking.findMany({
     where: {
       spaceId,
@@ -61,9 +58,7 @@ export async function getAvailableSlots(
     },
   });
 
-  // Step 4 & 5: Filter out overlapping slots
   const availableSlots = slots.filter((slot) => {
-    // Check if this slot overlaps with any booking
     const hasOverlap = bookings.some((booking) => {
       // Standard interval overlap check: booking.startTime < slotEnd AND booking.endTime > slotStart
       return booking.startTime < slot.endTime && booking.endTime > slot.startTime;

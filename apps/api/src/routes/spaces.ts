@@ -5,6 +5,7 @@ import { authMiddleware } from "../middleware/auth";
 import { requireOrgAccess } from "../middleware/requireOrgAccess";
 import { requireOwnerRole } from "../middleware/requireOwnerRole";
 import { prisma } from "../lib/prisma";
+import { getAvailableSlots } from "../lib/availability";
 
 const router = Router({ mergeParams: true }); // Inherit :orgId from parent router
 
@@ -12,8 +13,6 @@ const router = Router({ mergeParams: true }); // Inherit :orgId from parent rout
 router.get("/", authMiddleware, requireOrgAccess, async (req, res) => {
   try {
     const orgId = req.params.orgId;
-
-    // CRITICAL: Always filter by orgId from params (validated by middleware)
     const spaces = await prisma.space.findMany({
       where: { orgId },
       orderBy: { createdAt: "desc" },
@@ -70,10 +69,7 @@ router.post(
   }
 );
 
-/**
- 
- * Security: CRITICAL multi-tenancy check - verify space belongs to org
- */
+
 router.get("/:spaceId", authMiddleware, requireOrgAccess, async (req, res) => {
   try {
     const { orgId, spaceId } = req.params;
@@ -104,11 +100,7 @@ router.get("/:spaceId", authMiddleware, requireOrgAccess, async (req, res) => {
   }
 });
 
-/**
 
- * 
- * Security: Verify space belongs to org before updating
- */
 router.put(
   "/:spaceId",
   authMiddleware,
@@ -152,6 +144,75 @@ router.put(
     }
   }
 );
+
+
+router.get("/:spaceId/availability", async (req, res) => {
+  try {
+    const { spaceId } = req.params;
+    const { date } = req.query;
+
+    if (!date) {
+      return res.status(400).json({
+        error: "Date query parameter is required",
+        code: "MISSING_DATE_PARAM",
+        message: "Please provide a date in the format: ?date=2026-09-10",
+      });
+    }
+
+    if (typeof date !== "string") {
+      return res.status(400).json({
+        error: "Date must be a string",
+        code: "INVALID_DATE_PARAM",
+      });
+    }
+
+   
+    let parsedDate: Date;
+    try {
+      parsedDate = new Date(date);
+      
+      if (isNaN(parsedDate.getTime())) {
+        throw new Error("Invalid date");
+      }
+    } catch {
+      return res.status(400).json({
+        error: "Date must be a valid ISO 8601 date string",
+        code: "INVALID_DATE_FORMAT",
+        message: "Example: 2026-09-10 or 2026-09-10T00:00:00Z",
+      });
+    }
+
+    
+    const space = await prisma.space.findUnique({
+      where: { id: spaceId },
+    });
+
+    if (!space) {
+      return res.status(404).json({
+        error: "Space not found",
+        code: "SPACE_NOT_FOUND",
+      });
+    }
+
+    const slots = await getAvailableSlots(spaceId, parsedDate);
+
+    return res.status(200).json({
+      spaceId,
+      date: parsedDate.toISOString().split("T")[0],
+      slots: slots.map((slot) => ({
+        startTime: slot.startTime.toISOString(),
+        endTime: slot.endTime.toISOString(),
+      })),
+      count: slots.length,
+    });
+  } catch (error) {
+    console.error("Get availability error:", error);
+    return res.status(500).json({
+      error: "Failed to fetch availability",
+      code: "AVAILABILITY_ERROR",
+    });
+  }
+});
 
 /**
 
