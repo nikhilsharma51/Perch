@@ -117,7 +117,7 @@ router.get("/:orgId", authMiddleware, requireOrgAccess, async (req, res) => {
         code: "ORG_NOT_FOUND",
       });
     }
-
+    
     return res.status(200).json({
       organization: {
         id: organization.id,
