@@ -7,6 +7,7 @@ import userRoutes from "./routes/users";
 import organizationRoutes from "./routes/organizations";
 import spaceRoutes from "./routes/spaces";
 import staffRoutes from "./routes/staff";
+import bookingsRoutes from "./routes/bookings";
 
 
 const app = express();
@@ -21,13 +22,13 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/organizations", organizationRoutes);
+app.use("/api/bookings", bookingsRoutes); // Public booking creation
 
 
 app.use("/api/organizations/:orgId/spaces", spaceRoutes);
 app.use("/api/organizations/:orgId/staff", staffRoutes);
 
-// Public space routes (no auth, no org context required)
-// Used for: availability checking (renters browsing before login)
+
 app.use("/api/spaces", spaceRoutes);
 
 
