@@ -6,6 +6,7 @@ import { requireOrgAccess } from "../middleware/requireOrgAccess";
 import { requireOwnerRole } from "../middleware/requireOwnerRole";
 import { prisma } from "../lib/prisma";
 import { getAvailableSlots } from "../lib/availability";
+import { redisSubscriber } from "../lib/redisSubscriber";
 
 const router = Router({ mergeParams: true }); // Inherit :orgId from parent router
 
@@ -211,6 +212,85 @@ router.get("/:spaceId/availability", async (req, res) => {
       error: "Failed to fetch availability",
       code: "AVAILABILITY_ERROR",
     });
+  }
+});
+
+/**
+ * Server-Sent Events (SSE) stream for real-time availability updates
+ *
+ * GET /api/spaces/:spaceId/availability/stream (public, no auth)
+ *
+ * Opens a persistent HTTP connection that streams availability changes as they happen.
+ * The client connects via EventSource and receives messages whenever a booking is created,
+ * cancelled, or a slot state changes.
+ *
+ * Flow:
+ * 1. Set SSE headers (Content-Type, Cache-Control, Connection)
+ * 2. Call res.flushHeaders() immediately — MANDATORY. Without this, some server configs
+ *    buffer the response and the client never receives the headers, leaving the connection
+ *    hanging indefinitely.
+ * 3. Subscribe to the Redis channel for this space
+ * 4. On incoming messages, write them as `data: ${message}\n\n`
+ * 5. On client disconnect (req.on('close')), unsubscribe and clean up listeners
+ *
+ * Important: The `redisSubscriber` connection is blocked while subscribed — we cannot
+ * run other Redis commands on it. That's why we use a dedicated subscriber connection,
+ * not the main app Redis client used for locking.
+ */
+router.get("/:spaceId/availability/stream", async (req, res) => {
+  const { spaceId } = req.params;
+
+  try {
+    // Verify the space exists before subscribing
+    const space = await prisma.space.findUnique({
+      where: { id: spaceId },
+    });
+
+    if (!space) {
+      return res.status(404).json({
+        error: "Space not found",
+        code: "SPACE_NOT_FOUND",
+      });
+    }
+
+    // Set SSE headers
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+
+    // CRITICAL: Flush headers immediately. Without this, the response is buffered
+    // and the client never receives the headers, so the EventSource connection never opens.
+    res.flushHeaders();
+
+    const channel = `availability:${spaceId}`;
+
+    // Message handler — writes incoming Redis pub/sub messages to the SSE stream
+    const messageHandler = (chan: string, message: string) => {
+      res.write(`data: ${message}\n\n`);
+    };
+
+    // Subscribe to the channel
+    redisSubscriber.subscribe(channel, (err) => {
+      if (err) {
+        console.error(`Failed to subscribe to ${channel}:`, err);
+        res.status(500).end();
+        return;
+      }
+    });
+
+    // Listen for messages on this subscriber connection
+    redisSubscriber.on("message", messageHandler);
+
+    // Clean up when the client disconnects (closes the browser tab, navigates away, etc.)
+    req.on("close", () => {
+      redisSubscriber.unsubscribe(channel);
+      redisSubscriber.removeListener("message", messageHandler);
+      console.log(`[SSE] Client disconnected from ${channel}`);
+      res.end();
+    });
+  } catch (error) {
+    console.error("SSE stream error:", error);
+    res.status(500).end();
   }
 });
 
