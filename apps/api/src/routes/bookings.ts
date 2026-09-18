@@ -4,7 +4,7 @@ import { prisma } from "../lib/prisma";
 import { getAvailableSlots } from "../lib/availability";
 import { assertTransition } from "../lib/stateMachine";
 import { authMiddleware } from "../middleware/auth";
-
+import { acquireSlotLock ,releaseSlotLock } from "../lib/slotLock";
 const router = Router();
 
 /**
@@ -18,29 +18,13 @@ const createBookingSchema = z.object({
   renterEmail: z.string().email("Renter email must be a valid email address"),
 });
 
-/**
- * Create a booking (NAIVE version — no locking)
- *
- * PUBLIC route — no auth required for guest checkout
- * 
- * POST /api/bookings
- * 
- * Body: { spaceId, startTime, endTime, renterEmail }
- * 
- * Flow:
- * 1. Validate input
- * 2. Check if the space exists
- * 3. Re-run availability query to verify slot is still open
- * 4. Find or create user with renterEmail
- * 5. Create booking with status 'pending' + BookingStatusHistory in TRANSACTION
- * 6. Return the booking
- * 
- * NOTE: This is the NAIVE version — no locking is added here.
- * This deliberately allows double-booking to demonstrate the race condition in Part 6.
- */
+
 router.post("/", async (req, res) => {
+  let lockId: string | null = null;
+  let parsedStartTime: Date | null = null;
+  let spaceId: string | null = null;
+
   try {
-    // Validate request body
     const result = createBookingSchema.safeParse(req.body);
     if (!result.success) {
       return res.status(400).json({
@@ -50,10 +34,10 @@ router.post("/", async (req, res) => {
       });
     }
 
-    const { spaceId, startTime, endTime, renterEmail } = result.data;
+    const { startTime, endTime, renterEmail } = result.data;
+    spaceId = result.data.spaceId;
 
-    // Parse times
-    const parsedStartTime = new Date(startTime);
+    parsedStartTime = new Date(startTime);
     const parsedEndTime = new Date(endTime);
 
     if (parsedEndTime <= parsedStartTime) {
@@ -63,7 +47,15 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Check if space exists
+    lockId = await acquireSlotLock(spaceId, parsedStartTime);
+
+    if (!lockId) {
+      return res.status(409).json({
+        error:
+          "This slot is being booked right now. Please try again in a moment.",
+      });
+    }
+
     const space = await prisma.space.findUnique({
       where: { id: spaceId },
     });
@@ -75,17 +67,14 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // STEP 1: Re-run availability query to check if slot is still open
     const bookingDate = new Date(parsedStartTime);
     bookingDate.setUTCHours(0, 0, 0, 0);
 
     const availableSlots = await getAvailableSlots(spaceId, bookingDate);
 
-    // Check if the requested time slot is available
-    // A slot is available if the booking fits entirely within available time
     const slotIsAvailable = availableSlots.some((slot) => {
       return (
-        slot.startTime.getTime() === parsedStartTime.getTime() &&
+        slot.startTime.getTime() === parsedStartTime!.getTime() &&
         slot.endTime.getTime() === parsedEndTime.getTime()
       );
     });
@@ -98,7 +87,6 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // STEP 2: Find or create user with renterEmail
     let renter = await prisma.user.findUnique({
       where: { email: renterEmail },
     });
@@ -113,10 +101,9 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // STEP 3: Create booking and BookingStatusHistory in a TRANSACTION
+    // Create booking and BookingStatusHistory in a TRANSACTION
     // This ensures we don't lose audit trail if one fails
     const booking = await prisma.$transaction(async (tx) => {
-      // Create booking with 'pending' status
       const newBooking = await tx.booking.create({
         data: {
           spaceId,
@@ -129,7 +116,6 @@ router.post("/", async (req, res) => {
         },
       });
 
-      // Create BookingStatusHistory record in same transaction
       await tx.bookingStatusHistory.create({
         data: {
           bookingId: newBooking.id,
@@ -142,7 +128,6 @@ router.post("/", async (req, res) => {
       return newBooking;
     });
 
-   
     return res.status(201).json({
       message: "Booking created successfully",
       booking: {
@@ -162,6 +147,10 @@ router.post("/", async (req, res) => {
       error: "Failed to create booking",
       code: "BOOKING_CREATE_ERROR",
     });
+  } finally {
+    if (lockId && parsedStartTime && spaceId) {
+      await releaseSlotLock(spaceId, parsedStartTime, lockId);
+    }
   }
 });
 
@@ -193,7 +182,7 @@ router.post("/:bookingId/transition", authMiddleware, async (req, res) => {
     const { bookingId } = req.params;
     const { toStatus } = req.body;
 
-    // Validate toStatus
+ 
     const validStatuses = ["pending", "confirmed", "checked_in", "completed", "cancelled", "no_show"];
     if (!toStatus || !validStatuses.includes(toStatus)) {
       return res.status(400).json({
@@ -203,7 +192,7 @@ router.post("/:bookingId/transition", authMiddleware, async (req, res) => {
       });
     }
 
-    // Fetch booking with related data
+
     const booking = await prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
@@ -244,7 +233,7 @@ router.post("/:bookingId/transition", authMiddleware, async (req, res) => {
     // Permission checks based on transition
     const fromStatus = booking.status;
 
-    // pending → cancelled: renter (own booking) or staff
+  
     if (fromStatus === "pending" && toStatus === "cancelled") {
       if (!isRenter && !isStaff) {
         return res.status(403).json({
@@ -254,7 +243,7 @@ router.post("/:bookingId/transition", authMiddleware, async (req, res) => {
         });
       }
     }
-    // confirmed → checked_in: staff only
+   
     else if (fromStatus === "confirmed" && toStatus === "checked_in") {
       if (!isStaff) {
         return res.status(403).json({
@@ -264,7 +253,7 @@ router.post("/:bookingId/transition", authMiddleware, async (req, res) => {
         });
       }
     }
-    // confirmed → cancelled: staff only
+    
     else if (fromStatus === "confirmed" && toStatus === "cancelled") {
       if (!isStaff) {
         return res.status(403).json({
@@ -274,7 +263,7 @@ router.post("/:bookingId/transition", authMiddleware, async (req, res) => {
         });
       }
     }
-    // checked_in → completed: staff only or system
+   
     else if (fromStatus === "checked_in" && toStatus === "completed") {
       if (!isStaff) {
         return res.status(403).json({
@@ -284,7 +273,7 @@ router.post("/:bookingId/transition", authMiddleware, async (req, res) => {
         });
       }
     }
-    // confirmed → no_show: system only
+    
     // TODO: Wire this up in Phase 9's worker - this will be called by the worker, not by users
     else if (fromStatus === "confirmed" && toStatus === "no_show") {
       return res.status(403).json({
@@ -314,15 +303,15 @@ router.post("/:bookingId/transition", authMiddleware, async (req, res) => {
       });
     }
 
-    // Update booking status and create history entry in transaction
+    
     const updatedBooking = await prisma.$transaction(async (tx) => {
-      // Update booking status
+      
       const updated = await tx.booking.update({
         where: { id: bookingId },
         data: { status: toStatus },
       });
 
-      // Create history entry
+      
       await tx.bookingStatusHistory.create({
         data: {
           bookingId,
