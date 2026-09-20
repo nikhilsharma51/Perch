@@ -46,7 +46,7 @@ router.post(
 
       const space = await prisma.space.create({
         data: {
-          orgId, // CRITICAL: Use validated orgId from params, never from body
+          orgId,
           name,
           type,
           hourlyRate,
@@ -75,12 +75,10 @@ router.get("/:spaceId", authMiddleware, requireOrgAccess, async (req, res) => {
   try {
     const { orgId, spaceId } = req.params;
 
-    // CRITICAL: Query by BOTH spaceId AND orgId
-    // This prevents users from accessing spaces in other organizations
     const space = await prisma.space.findFirst({
       where: {
         id: spaceId,
-        orgId, // Multi-tenancy security boundary
+        orgId, 
       },
     });
 
@@ -239,6 +237,9 @@ router.get("/:spaceId/availability", async (req, res) => {
  */
 router.get("/:spaceId/availability/stream", async (req, res) => {
   const { spaceId } = req.params;
+  let clientSubscriber: any = null;
+
+  console.log(`[SSE] New connection request for space: ${spaceId}`);
 
   try {
     // Verify the space exists before subscribing
@@ -247,13 +248,15 @@ router.get("/:spaceId/availability/stream", async (req, res) => {
     });
 
     if (!space) {
+      console.log(`[SSE] Space not found: ${spaceId}`);
       return res.status(404).json({
         error: "Space not found",
         code: "SPACE_NOT_FOUND",
       });
     }
 
-    // Set SSE headers
+    console.log(`[SSE] Space found, setting up stream for: ${spaceId}`);
+
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
@@ -261,46 +264,61 @@ router.get("/:spaceId/availability/stream", async (req, res) => {
     // CRITICAL: Flush headers immediately. Without this, the response is buffered
     // and the client never receives the headers, so the EventSource connection never opens.
     res.flushHeaders();
+    console.log(`[SSE] Headers flushed for ${spaceId}`);
 
     const channel = `availability:${spaceId}`;
 
+    // Create a NEW Redis subscriber for this client (not shared!)
+    // Each client connection gets its own subscriber instance
+    const Redis = require("ioredis");
+    clientSubscriber = new Redis(process.env.REDIS_URL);
+    console.log(`[SSE] Created Redis subscriber for ${spaceId}`);
+
     // Message handler — writes incoming Redis pub/sub messages to the SSE stream
     const messageHandler = (chan: string, message: string) => {
-      res.write(`data: ${message}\n\n`);
+      try {
+        console.log(`[SSE] Sending message to client for ${spaceId}:`, message);
+        res.write(`data: ${message}\n\n`);
+      } catch (err) {
+        console.error(`[SSE] Failed to write to client:`, err);
+      }
     };
 
-    // Subscribe to the channel
-    redisSubscriber.subscribe(channel, (err) => {
+    clientSubscriber.subscribe(channel, (err: any) => {
       if (err) {
-        console.error(`Failed to subscribe to ${channel}:`, err);
+        console.error(`[SSE] Failed to subscribe to ${channel}:`, err);
         res.status(500).end();
         return;
       }
+      console.log(`[SSE] Successfully subscribed to ${channel}`);
     });
 
-    // Listen for messages on this subscriber connection
-    redisSubscriber.on("message", messageHandler);
+    clientSubscriber.on("message", messageHandler);
 
-    // Clean up when the client disconnects (closes the browser tab, navigates away, etc.)
+    clientSubscriber.on("error", (err: any) => {
+      console.error(`[SSE] Redis subscriber error for ${spaceId}:`, err);
+    });
+
     req.on("close", () => {
-      redisSubscriber.unsubscribe(channel);
-      redisSubscriber.removeListener("message", messageHandler);
       console.log(`[SSE] Client disconnected from ${channel}`);
-      res.end();
+      if (clientSubscriber) {
+        clientSubscriber.unsubscribe(channel);
+        clientSubscriber.removeListener("message", messageHandler);
+        clientSubscriber.quit();
+      }
     });
+
+    console.log(`[SSE] Stream setup complete for ${spaceId}, connection active`);
   } catch (error) {
-    console.error("SSE stream error:", error);
+    console.error("[SSE] Stream setup error:", error);
+    if (clientSubscriber) {
+      clientSubscriber.quit();
+    }
     res.status(500).end();
   }
 });
 
-/**
 
- * Soft-delete a space (owner only)
- * 
- * Note: Returns 501 Not Implemented - deferred until we add isActive field
- * Hard delete is NOT safe (booking history depends on spaces)
- */
 router.delete(
   "/:spaceId",
   authMiddleware,

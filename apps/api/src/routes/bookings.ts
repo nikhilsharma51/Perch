@@ -5,12 +5,10 @@ import { getAvailableSlots } from "../lib/availability";
 import { assertTransition } from "../lib/stateMachine";
 import { authMiddleware } from "../middleware/auth";
 import { acquireSlotLock ,releaseSlotLock } from "../lib/slotLock";
+import { redis } from "../lib/redis";
 const router = Router();
 
-/**
- * Schema for public booking creation
- * Accepts renterEmail for guest checkout (no user ID required)
- */
+
 const createBookingSchema = z.object({
   spaceId: z.string().uuid("Space ID must be a valid UUID"),
   startTime: z.string().datetime("Start time must be a valid ISO 8601 datetime"),
@@ -95,8 +93,8 @@ router.post("/", async (req, res) => {
       renter = await prisma.user.create({
         data: {
           email: renterEmail,
-          passwordHash: "", // Will be set during account creation/verification
-          name: renterEmail.split("@")[0], // Use email prefix as default name
+          passwordHash: "", 
+          name: renterEmail.split("@")[0], 
         },
       });
     }
@@ -128,6 +126,24 @@ router.post("/", async (req, res) => {
       return newBooking;
     });
 
+    
+    console.log('[SSE] Publishing booking change to Redis...');
+    try {
+      const message = JSON.stringify({
+        spaceId: booking.spaceId,
+        date: booking.startTime.toDateString(),
+        type: 'booking_changed'
+      });
+      console.log(`[SSE] Publishing message: ${message} to channel: availability:${booking.spaceId}`);
+      const numSubscribers = await redis.publish(`availability:${booking.spaceId}`, message);
+      console.log(`[SSE] Message published successfully to ${numSubscribers} subscriber(s)`);
+    } catch (publishError) {
+      console.error('[SSE] Failed to publish booking change:', publishError);
+      if (publishError instanceof Error) {
+        console.error('[SSE] Publish error details:', publishError.message);
+      }
+    }
+
     return res.status(201).json({
       message: "Booking created successfully",
       booking: {
@@ -143,9 +159,14 @@ router.post("/", async (req, res) => {
     });
   } catch (error) {
     console.error("Create booking error:", error);
+    if (error instanceof Error) {
+      console.error("Error message:", error.message);
+      console.error("Error stack:", error.stack);
+    }
     return res.status(500).json({
       error: "Failed to create booking",
       code: "BOOKING_CREATE_ERROR",
+      details: error instanceof Error ? error.message : String(error)
     });
   } finally {
     if (lockId && parsedStartTime && spaceId) {
@@ -154,29 +175,8 @@ router.post("/", async (req, res) => {
   }
 });
 
-/**
- * Transition a booking to a new status
- * 
- * AUTH REQUIRED — role-based permissions
- * 
- * POST /api/bookings/:bookingId/transition
- * 
- * Body: { toStatus: 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'no_show' }
- * 
- * Flow:
- * 1. Fetch booking and verify it belongs to a space owned by requesting user's org
- * 2. Check permissions based on transition and user role
- * 3. Call assertTransition() to validate state machine rules (throws 409 if illegal)
- * 4. Update booking status + write BookingStatusHistory in transaction
- * 5. Return updated booking
- * 
- * Permission Matrix:
- * - pending → cancelled: renter (own booking) or staff
- * - confirmed → checked_in: staff only
- * - confirmed → cancelled: staff only
- * - checked_in → completed: staff only or system
- * - confirmed → no_show: system only (TODO: wire up in Phase 9's worker)
- */
+
+ 
 router.post("/:bookingId/transition", authMiddleware, async (req, res) => {
   try {
     const { bookingId } = req.params;
@@ -216,7 +216,6 @@ router.post("/:bookingId/transition", authMiddleware, async (req, res) => {
       });
     }
 
-    // Check if user has access to this booking's space
     const userId = (req as any).user.userId;
     const orgId = booking.space.orgId;
 
@@ -227,10 +226,9 @@ router.post("/:bookingId/transition", authMiddleware, async (req, res) => {
       },
     });
 
-    const isStaff = !!membership; // Has any role in the org
+    const isStaff = !!membership; 
     const isRenter = booking.renterUserId === userId;
 
-    // Permission checks based on transition
     const fromStatus = booking.status;
 
   
@@ -293,7 +291,7 @@ router.post("/:bookingId/transition", authMiddleware, async (req, res) => {
       }
     }
 
-    // Validate state machine transition
+    
     try {
       assertTransition(fromStatus, toStatus);
     } catch (error: any) {
@@ -323,6 +321,19 @@ router.post("/:bookingId/transition", authMiddleware, async (req, res) => {
 
       return updated;
     });
+
+    
+    try {
+      const message = JSON.stringify({
+        spaceId: updatedBooking.spaceId,
+        date: updatedBooking.startTime.toDateString(),
+        type: 'booking_changed'
+      });
+      await redis.publish(`availability:${updatedBooking.spaceId}`, message);
+    } catch (publishError) {
+      console.error('[SSE] Failed to publish booking transition:', publishError);
+      
+    }
 
     return res.status(200).json({
       message: "Booking status updated successfully",
