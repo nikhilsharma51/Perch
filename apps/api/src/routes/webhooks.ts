@@ -30,6 +30,8 @@ router.post("/stripe", async (req: Request, res: Response) => {
       await handlePaymentIntentSucceeded(event);
     } else if (event.type === "payment_intent.payment_failed") {
       await handlePaymentIntentPaymentFailed(event);
+    } else if (event.type === "charge.refunded") {
+      await handleChargeRefunded(event);
     } else {
       console.log(`[Webhook] Ignoring event type: ${event.type}`);
     }
@@ -162,6 +164,51 @@ async function handlePaymentIntentPaymentFailed(event: any): Promise<void> {
 
   console.log(
     `[Webhook] Booking ${bookingId} remains pending. Renter can retry payment.`
+  );
+}
+
+/**
+ * Handle charge.refunded event
+ * 
+ * When Stripe processes a refund, update the Payment record to reflect the refund status.
+ * The booking is already transitioned to "cancelled" by the cancellation route.
+ */
+async function handleChargeRefunded(event: any): Promise<void> {
+  const charge = event.data.object;
+  const chargeId = charge.id;
+  const paymentIntentId = charge.payment_intent;
+
+  if (!paymentIntentId) {
+    console.warn(
+      `[Webhook] charge.refunded has no payment_intent: ${chargeId}`
+    );
+    return;
+  }
+
+  console.log(
+    `[Webhook] Processing charge.refunded for payment_intent ${paymentIntentId}`
+  );
+
+  // Find the Payment record by stripePaymentId (which is the PaymentIntent ID)
+  const payment = await prisma.payment.findUnique({
+    where: { stripePaymentId: paymentIntentId },
+  });
+
+  if (!payment) {
+    console.warn(
+      `[Webhook] Payment not found for payment_intent: ${paymentIntentId}`
+    );
+    return;
+  }
+
+  // Update Payment status to "refunded"
+  const updated = await prisma.payment.update({
+    where: { id: payment.id },
+    data: { status: "refunded" },
+  });
+
+  console.log(
+    `[Webhook] Payment ${payment.id} marked as refunded (charge: ${chargeId})`
   );
 }
 

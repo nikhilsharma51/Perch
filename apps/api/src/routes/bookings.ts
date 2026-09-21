@@ -384,4 +384,192 @@ router.post("/:bookingId/transition", authMiddleware, async (req, res) => {
   }
 });
 
+/**
+ * Cancel a booking with optional refund
+ * 
+ * POST /api/bookings/:bookingId/cancel
+ * 
+ * For renter: can only cancel their own bookings
+ * For staff: can cancel any booking in their org
+ * 
+ * Refund logic:
+ * - Inside refund window (< 24h before start): no refund, booking → cancelled
+ * - Outside refund window (≥ 24h before start): call Stripe refund, booking → cancelled
+ */
+router.post("/:bookingId/cancel", authMiddleware, async (req, res) => {
+  try {
+    const { bookingId } = req.params;
+    const userId = (req as any).user.userId;
+
+    // Fetch booking with payment info
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        space: {
+          include: {
+            org: {
+              include: {
+                members: true,
+              },
+            },
+          },
+        },
+        renter: true,
+        payments: {
+          where: { status: "succeeded" },
+        },
+      },
+    });
+
+    if (!booking) {
+      return res.status(404).json({
+        error: "Booking not found",
+        code: "BOOKING_NOT_FOUND",
+      });
+    }
+
+    // Check permissions: renter or staff
+    const membership = await prisma.orgMembership.findFirst({
+      where: {
+        orgId: booking.space.orgId,
+        userId,
+      },
+    });
+
+    const isRenter = booking.renterUserId === userId;
+    const isStaff = !!membership;
+
+    if (isRenter) {
+      // Renter can only cancel their own booking
+      // (no additional permission check needed)
+    } else if (isStaff) {
+      // Staff of the org can cancel any booking
+    } else {
+      return res.status(403).json({
+        error: "Forbidden",
+        code: "FORBIDDEN",
+        message: "You don't have permission to cancel this booking",
+      });
+    }
+
+    // Check if booking can be cancelled (must be pending or confirmed)
+    if (booking.status !== "pending" && booking.status !== "confirmed") {
+      return res.status(409).json({
+        error: "Cannot cancel booking in this state",
+        code: "INVALID_STATE",
+        message: `Booking is ${booking.status} and cannot be cancelled`,
+      });
+    }
+
+    // Calculate time until booking starts
+    const now = new Date();
+    const timeUntilStartMs = booking.startTime.getTime() - now.getTime();
+    const timeUntilStartHours = timeUntilStartMs / (1000 * 60 * 60);
+
+    // Refund policy: 24 hours minimum before start
+    // Note: This could be made per-space configurable in future phases
+    const REFUND_WINDOW_HOURS = 24;
+    const shouldRefund = timeUntilStartHours >= REFUND_WINDOW_HOURS;
+
+    console.log(
+      `[Cancel] Booking ${bookingId}: ${timeUntilStartHours.toFixed(1)}h until start. Refund: ${shouldRefund}`
+    );
+
+    // If there's a confirmed payment, potentially refund it
+    let refundId: string | null = null;
+    if (booking.payments.length > 0 && shouldRefund) {
+      const successfulPayment = booking.payments[0];
+
+      try {
+        console.log(
+          `[Cancel] Creating Stripe refund for payment ${successfulPayment.stripePaymentId}`
+        );
+        const refund = await stripe.refunds.create({
+          payment_intent: successfulPayment.stripePaymentId,
+        });
+        refundId = refund.id;
+        console.log(`[Cancel] Refund created: ${refundId}`);
+      } catch (stripeErr: any) {
+        console.error(
+          `[Cancel] Failed to create refund: ${stripeErr.message}`
+        );
+        return res.status(500).json({
+          error: "Failed to process refund",
+          code: "REFUND_ERROR",
+          details: stripeErr.message,
+        });
+      }
+    } else if (booking.payments.length > 0 && !shouldRefund) {
+      console.log(
+        `[Cancel] Booking within refund window (${timeUntilStartHours.toFixed(1)}h < ${REFUND_WINDOW_HOURS}h). No refund issued.`
+      );
+    }
+
+    // Update booking and create history in transaction
+    const cancelledBooking = await prisma.$transaction(async (tx) => {
+      const updated = await tx.booking.update({
+        where: { id: bookingId },
+        data: { status: "cancelled" },
+      });
+
+      await tx.bookingStatusHistory.create({
+        data: {
+          bookingId,
+          fromStatus: booking.status,
+          toStatus: "cancelled",
+          changedBy: userId,
+        },
+      });
+
+      // If a refund was issued, record it in the Payment (webhook will update status to 'refunded' later)
+      if (refundId && booking.payments.length > 0) {
+        const payment = booking.payments[0];
+        // Don't update the Payment status here — wait for charge.refunded webhook
+        // Just log that refund was initiated
+        console.log(
+          `[Cancel] Refund ${refundId} initiated for payment ${payment.stripePaymentId}`
+        );
+      }
+
+      return updated;
+    });
+
+    // Publish SSE event
+    try {
+      const message = JSON.stringify({
+        spaceId: booking.spaceId,
+        date: booking.startTime.toDateString(),
+        type: "booking_cancelled",
+      });
+      await redis.publish(`availability:${booking.spaceId}`, message);
+    } catch (err: any) {
+      console.error(`[Cancel] Failed to publish SSE: ${err.message}`);
+    }
+
+    res.status(200).json({
+      message: "Booking cancelled successfully",
+      booking: {
+        id: cancelledBooking.id,
+        status: cancelledBooking.status,
+        startTime: cancelledBooking.startTime.toISOString(),
+        endTime: cancelledBooking.endTime.toISOString(),
+      },
+      refund: {
+        issued: shouldRefund && booking.payments.length > 0,
+        refundId: refundId || null,
+        reason: shouldRefund
+          ? "Outside refund window"
+          : "Inside refund window - no refund",
+      },
+    });
+  } catch (error) {
+    console.error("Cancel booking error:", error);
+    res.status(500).json({
+      error: "Failed to cancel booking",
+      code: "CANCEL_ERROR",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
 export default router;
