@@ -37,7 +37,6 @@ export const requireOrgAccess = async (
       });
     }
 
-    // Query membership using the unique compound key
     const membership = await prisma.orgMembership.findUnique({
       where: {
         orgId_userId: {

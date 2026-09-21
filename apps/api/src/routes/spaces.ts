@@ -242,7 +242,7 @@ router.get("/:spaceId/availability/stream", async (req, res) => {
   console.log(`[SSE] New connection request for space: ${spaceId}`);
 
   try {
-    // Verify the space exists before subscribing
+  
     const space = await prisma.space.findUnique({
       where: { id: spaceId },
     });
