@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma";
 import { getAvailableSlots } from "../lib/availability";
@@ -6,6 +7,7 @@ import { assertTransition } from "../lib/stateMachine";
 import { authMiddleware } from "../middleware/auth";
 import { acquireSlotLock ,releaseSlotLock } from "../lib/slotLock";
 import { redis } from "../lib/redis";
+import { stripe } from "../lib/stripe";
 const router = Router();
 
 
@@ -126,6 +128,27 @@ router.post("/", async (req, res) => {
       return newBooking;
     });
 
+    // Create a Stripe PaymentIntent with the booking's real ID as metadata
+    // The booking now exists in the database, so we have a stable ID to attach
+    let paymentIntent: any = null;
+    let clientSecret: string | null = null;
+
+    try {
+      paymentIntent = await stripe.paymentIntents.create({
+        amount: space.depositRate, // Amount in smallest currency unit (paise/cents)
+        currency: 'inr',
+        metadata: {
+          bookingId: booking.id,
+        },
+      });
+      clientSecret = paymentIntent.client_secret;
+      console.log(`[Stripe] PaymentIntent created: ${paymentIntent.id} for booking ${booking.id}`);
+    } catch (stripeError) {
+      console.error('[Stripe] Failed to create PaymentIntent:', stripeError);
+      // Do not fail the entire booking creation — log the error but return success
+      // The frontend can attempt to create the payment again
+      // In production, you might want to queue a retry job here (Phase 9)
+    }
     
     console.log('[SSE] Publishing booking change to Redis...');
     try {
@@ -155,6 +178,10 @@ router.post("/", async (req, res) => {
         status: booking.status,
         amount: booking.amount,
         createdAt: booking.createdAt.toISOString(),
+      },
+      payment: {
+        clientSecret: clientSecret || null,
+        paymentIntentId: paymentIntent?.id || null,
       },
     });
   } catch (error) {
