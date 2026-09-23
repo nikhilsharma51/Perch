@@ -4,7 +4,7 @@ A studio and resource booking platform — built for podcast studios, photograph
 
 This is a full-stack portfolio project. The goal isn't just "a booking app" — it's a vehicle for building and demonstrating the infrastructure patterns that actually show up in production systems: multi-tenancy, distributed locking, background job processing, real-time updates, and role-based access control.
 
-> **Status: Phase 5 of 13 complete.** This README is a running log — I'm updating it as I go, not writing it retroactively at the end. Sections below marked `(pending)` are scaffolded but not real yet.
+> **Status: Phase 8 of 13 complete.** This README is a running log — I'm updating it as I go, not writing it retroactively at the end. Sections below marked `(pending)` are scaffolded but not real yet.
 
 ---
 
@@ -54,9 +54,9 @@ What's in as of this update:
 
 ## What's next
 
-- **Phase 6 — Redis distributed lock** *(pending)*: wrap booking creation in a lock keyed on `spaceId + slot`, so the exact bug proven above becomes structurally impossible. This is the fix that everything from here on depends on.
-- **Phase 7 — Real-time availability (SSE)** *(pending)*
-- **Phase 8 — Stripe payments** *(pending)*
+- **Phase 6 — Redis distributed lock** *(✅)*: wrap booking creation in a lock keyed on `spaceId + slot`, so the exact bug proven above becomes structurally impossible. This is the fix that everything from here on depends on.
+- **Phase 7 — Real-time availability (SSE)** *(✅)*
+- **Phase 8 — Stripe payments** *(✅)*
 - **Phase 9 — Background worker: reminders + no-show detection** *(pending)*
 - **Phase 10 — Docker Compose** *(pending)*
 - **Phase 11 — Frontend wiring (owner dashboard + renter booking flow)** *(pending)*
@@ -89,7 +89,7 @@ npx tsx src/server.ts
 
 ## Architecture
 
-*(Diagram pending — will drop in the service graph once Docker Compose (Phase 10) makes the actual service boundaries real, plus an ASCII request-flow diagram for the booking path.)*
+*(Diagram pending — I will drop in the service graph once Docker Compose (Phase 10) makes the actual service boundaries real, plus an ASCII request-flow diagram for the booking path.)*
 
 ---
 
