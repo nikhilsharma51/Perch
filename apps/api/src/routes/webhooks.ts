@@ -3,8 +3,15 @@ import { stripe } from "../lib/stripe";
 import { prisma } from "../lib/prisma";
 import { assertTransition } from "../lib/stateMachine";
 import { redis } from "../lib/redis";
+import Redis from "ioredis";
+import { createReminderQueue } from "@perch/shared";
 
 const router = Router();
+
+const reminderQueueRedis = new Redis(process.env.REDIS_URL!, {
+  maxRetriesPerRequest: null, // Required for BullMQ
+});
+const reminderQueue = createReminderQueue(reminderQueueRedis);
 
 router.post("/stripe", async (req: Request, res: Response) => {
   const sig = req.headers["stripe-signature"];
@@ -133,6 +140,38 @@ async function handlePaymentIntentSucceeded(event: any): Promise<void> {
     await redis.publish(`availability:${booking.spaceId}`, message);
   } catch (err: any) {
     console.error(`[Webhook] Failed to publish SSE event: ${err.message}`);
+  }
+
+  // Enqueue reminder job (outside transaction, separate from booking confirmation)
+  // Reminder fires 2 hours before booking start time
+  try {
+    const reminderTime = new Date(
+      booking.startTime.getTime() - 2 * 60 * 60 * 1000
+    );
+    const delayMs = reminderTime.getTime() - Date.now();
+
+    if (delayMs > 0) {
+      await reminderQueue.add(
+        "send-reminder",
+        { bookingId },
+        {
+          delay: delayMs,
+          removeOnComplete: true,
+        }
+      );
+      console.log(
+        `[Webhook] Reminder scheduled for booking ${bookingId} at ${reminderTime.toISOString()}`
+      );
+    } else {
+      console.log(
+        `[Webhook] Booking ${bookingId} starts in the past or less than 2 hours away; skipping reminder`
+      );
+    }
+  } catch (err: any) {
+    console.error(
+      `[Webhook] Failed to enqueue reminder for booking ${bookingId}: ${err.message}`
+    );
+    // Log error but don't fail the webhook — booking is already confirmed in DB
   }
 }
 

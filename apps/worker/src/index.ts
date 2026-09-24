@@ -8,16 +8,30 @@
 
 import 'dotenv/config'
 import { reminderQueue, noShowQueue } from './queues'
+import { createReminderWorker } from './processors/reminder'
+import redis from './lib/redis'
 
 console.log('[Worker] Initializing Perch background worker...')
 
 console.log(`[Worker] Reminder queue: ${reminderQueue.name}`)
 console.log(`[Worker] No-show queue: ${noShowQueue.name}`)
 
-// Placeholder until processors are implemented in Phase 9 Part 3+
-console.log('[Worker] Ready for Phase 9 Part 3: Processors')
 
-// Graceful shutdown
+async function initializeWorkers() {
+  try {
+    const reminderWorker = await createReminderWorker(redis)
+    console.log('[Worker] ✓ Reminder worker initialized')
+  } catch (err) {
+    console.error('[Worker] Failed to initialize reminder worker:', err)
+    process.exit(1)
+  }
+}
+
+initializeWorkers()
+
+// Placeholder for no-show sweep processor (Phase 9 Part 5)
+console.log('[Worker] Ready for Phase 9 Part 5: No-show sweep processor')
+
 process.on('SIGTERM', async () => {
   console.log('[Worker] SIGTERM received, shutting down...')
   await reminderQueue.close()
