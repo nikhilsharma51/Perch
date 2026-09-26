@@ -7,7 +7,7 @@
     "test": "echo \"Error: no test specified\" && exit 1",
     "postinstall": "prisma skills sync || exit 0",
     "dev:server": "tsx watch src/server.ts",
-    "dev:worker": "tsx watch src/worker.ts"
+    "build": "tsc"
   },
   "prisma": {
     "schema": "../../prisma/schema.prisma"
@@ -20,7 +20,6 @@
     "@prisma/adapter-neon": "^7.10.0",
     "@prisma/client": "7.10.0",
     "bcryptjs": "^3.0.3",
-    "bullmq": "^6.3.4",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
