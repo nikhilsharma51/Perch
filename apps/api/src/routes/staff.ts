@@ -5,6 +5,7 @@ import { authMiddleware } from "../middleware/auth";
 import { requireOrgAccess } from "../middleware/requireOrgAccess";
 import { requireOwnerRole } from "../middleware/requireOwnerRole";
 import { prisma } from "../lib/prisma";
+import { getStringParam } from "../lib/utils";
 
 const router = Router({ mergeParams: true }); // Inherit :orgId from parent router
 
@@ -17,7 +18,9 @@ router.post(
   validate(inviteStaffSchema),
   async (req, res) => {
     try {
-      const orgId = req.params.orgId;
+      const orgId = getStringParam(req.params.orgId);
+      if (!orgId) return res.status(400).json({ error: "orgId required" });
+      
       const { email, role } = req.body;
 
       
@@ -89,7 +92,8 @@ router.post(
 
 router.get("/", authMiddleware, requireOrgAccess, async (req, res) => {
   try {
-    const orgId = req.params.orgId;
+    const orgId = getStringParam(req.params.orgId);
+    if (!orgId) return res.status(400).json({ error: "orgId required" });
 
     const memberships = await prisma.orgMembership.findMany({
       where: { orgId },
@@ -136,7 +140,10 @@ router.delete(
   requireOwnerRole,
   async (req, res) => {
     try {
-      const { orgId, userId } = req.params;
+      const orgId = getStringParam(req.params.orgId);
+      const userId = getStringParam(req.params.userId);
+      if (!orgId || !userId) return res.status(400).json({ error: "orgId and userId required" });
+      
       const currentUserId = req.user!.userId;
 
 

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { prisma } from "../lib/prisma";
+import { getStringParam } from "../lib/utils";
 
 /**
  * Middleware to verify user has access to the requested organization.
@@ -20,7 +21,7 @@ export const requireOrgAccess = async (
   next: NextFunction
 ) => {
   try {
-    const orgId = req.params.orgId;
+    const orgId = getStringParam(req.params.orgId);
     const userId = req.user?.userId;
 
     if (!userId) {

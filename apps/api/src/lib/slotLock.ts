@@ -7,7 +7,7 @@ export async function acquireSlotLock(spaceId: string, startTime: Date): Promise
   // SET key lockId NX PX 8000
   // NX = only set if not exists
   // PX 8000 = expire after 8 seconds
-  const result = await redis.set(key, lockId, 'NX', 'PX', 8000)
+  const result = await redis.set(key, lockId, 'PX', 8000, 'NX')
   return result === 'OK' ? lockId : null
 }
 

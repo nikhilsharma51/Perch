@@ -7,6 +7,7 @@ import { authMiddleware } from "../middleware/auth";
 import { acquireSlotLock ,releaseSlotLock } from "../lib/slotLock";
 import { redis } from "../lib/redis";
 import { stripe } from "../lib/stripe";
+import { getStringParam } from "../lib/utils";
 const router = Router();
 
 
@@ -202,8 +203,11 @@ router.post("/", async (req, res) => {
  
 router.post("/:bookingId/transition", authMiddleware, async (req, res) => {
   try {
-    const { bookingId } = req.params;
-    const { toStatus } = req.body;
+    const bookingId = getStringParam(req.params.bookingId);
+    if (!bookingId) return res.status(400).json({ error: "bookingId required" });
+    
+    const toStatus = getStringParam(req.body.toStatus);
+    if (!toStatus) return res.status(400).json({ error: "toStatus required" });
 
  
     const validStatuses = ["pending", "confirmed", "checked_in", "completed", "cancelled", "no_show"];
@@ -316,7 +320,7 @@ router.post("/:bookingId/transition", authMiddleware, async (req, res) => {
 
     
     try {
-      assertTransition(fromStatus, toStatus);
+      assertTransition(fromStatus, toStatus as any);
     } catch (error: any) {
       return res.status(error.status || 409).json({
         error: error.message || "Invalid state transition",
@@ -329,7 +333,7 @@ router.post("/:bookingId/transition", authMiddleware, async (req, res) => {
       
       const updated = await tx.booking.update({
         where: { id: bookingId },
-        data: { status: toStatus },
+        data: { status: toStatus as any },
       });
 
       
@@ -337,7 +341,7 @@ router.post("/:bookingId/transition", authMiddleware, async (req, res) => {
         data: {
           bookingId,
           fromStatus,
-          toStatus,
+          toStatus: toStatus as any,
           changedBy: userId,
         },
       });
@@ -398,7 +402,9 @@ router.post("/:bookingId/transition", authMiddleware, async (req, res) => {
  */
 router.post("/:bookingId/cancel", authMiddleware, async (req, res) => {
   try {
-    const { bookingId } = req.params;
+    const bookingId = getStringParam(req.params.bookingId);
+    if (!bookingId) return res.status(400).json({ error: "bookingId required" });
+    
     const userId = (req as any).user.userId;
 
     // Fetch booking with payment info

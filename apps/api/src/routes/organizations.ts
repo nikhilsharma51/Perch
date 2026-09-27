@@ -5,6 +5,7 @@ import { authMiddleware } from "../middleware/auth";
 import { requireOrgAccess } from "../middleware/requireOrgAccess";
 import { requireOwnerRole } from "../middleware/requireOwnerRole";
 import { prisma } from "../lib/prisma";
+import { getStringParam } from "../lib/utils";
 
 const router = Router();
 
@@ -97,7 +98,8 @@ router.get("/", authMiddleware, async (req, res) => {
 
 router.get("/:orgId", authMiddleware, requireOrgAccess, async (req, res) => {
   try {
-    const orgId = req.params.orgId;
+    const orgId = getStringParam(req.params.orgId);
+    if (!orgId) return res.status(400).json({ error: "orgId required" });
 
     const organization = await prisma.organization.findUnique({
       where: { id: orgId },
@@ -147,7 +149,9 @@ router.put(
   validate(updateOrgSchema),
   async (req, res) => {
     try {
-      const orgId = req.params.orgId;
+      const orgId = getStringParam(req.params.orgId);
+      if (!orgId) return res.status(400).json({ error: "orgId required" });
+      
       const updates = req.body;
 
       if (updates.slug) {

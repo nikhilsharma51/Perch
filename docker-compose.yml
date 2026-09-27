@@ -1,25 +1,88 @@
-# NOTE: PostgreSQL is now hosted on Neon (neon.tech)
-# Connection strings are in .env file
-# Keeping this commented for reference only
-
-# services:
-#   postgres:
-#     image: postgres:16
-#     environment:
-#       POSTGRES_USER: postgres
-#       POSTGRES_PASSWORD: postgres
-#       POSTGRES_DB: perch
-#       POSTGRES_HOST_AUTH_METHOD: trust
-#     ports:
-#       - "5432:5432"
-#     volumes:
-#       - pgdata:/var/lib/postgresql/data
+version: '3.8'
 
 services:
+  # Redis cache and pub/sub broker
+  # Phase 6: slot locking
+  # Phase 7: availability stream pub/sub
   redis:
-    image: redis:7
+    image: redis:7-alpine
+    container_name: perch-redis
     ports:
       - "6379:6379"
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - redis_data:/data
+    networks:
+      - perch-network
 
-# volumes:
-#   pgdata:
+  # Express API Server
+  # Connects to:
+  # - Neon (remote Postgres) via DATABASE_URL from .env
+  # - Redis (this container) via redis://redis:6379
+  # - Stripe (external, via API keys in .env)
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    container_name: perch-api
+    ports:
+      - "4000:4000"
+    environment:
+      # Read from root .env file
+      NODE_ENV: production
+      PORT: 4000
+      REDIS_URL: redis://redis:6379
+      # These come from the .env file via env_file
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - perch-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # Next.js Frontend
+  # Connects to:
+  # - API (this container) via http://api:4000/api (via Docker DNS)
+  # - Client browser connects via localhost:3000
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    container_name: perch-web
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+    depends_on:
+      - api
+    networks:
+      - perch-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+networks:
+  perch-network:
+    driver: bridge
+
+volumes:
+  redis_data:
+    driver: local

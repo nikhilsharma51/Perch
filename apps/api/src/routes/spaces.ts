@@ -7,13 +7,16 @@ import { requireOwnerRole } from "../middleware/requireOwnerRole";
 import { prisma } from "../lib/prisma";
 import { getAvailableSlots } from "../lib/availability";
 import { redisSubscriber } from "../lib/redisSubscriber";
+import { getStringParam } from "../lib/utils";
 
 const router = Router({ mergeParams: true }); // Inherit :orgId from parent router
 
 
 router.get("/", authMiddleware, requireOrgAccess, async (req, res) => {
   try {
-    const orgId = req.params.orgId;
+    const orgId = getStringParam(req.params.orgId);
+    if (!orgId) return res.status(400).json({ error: "orgId required" });
+    
     const spaces = await prisma.space.findMany({
       where: { orgId },
       orderBy: { createdAt: "desc" },
@@ -40,7 +43,8 @@ router.post(
   validate(createSpaceSchema),
   async (req, res) => {
     try {
-      const orgId = req.params.orgId;
+      const orgId = getStringParam(req.params.orgId);
+      if (!orgId) return res.status(400).json({ error: "orgId required" });
       
       const { name, type, hourlyRate, depositRate, capacity, imageUrl } = req.body;
 
@@ -73,7 +77,9 @@ router.post(
 
 router.get("/:spaceId", authMiddleware, requireOrgAccess, async (req, res) => {
   try {
-    const { orgId, spaceId } = req.params;
+    const orgId = getStringParam(req.params.orgId);
+    const spaceId = getStringParam(req.params.spaceId);
+    if (!orgId || !spaceId) return res.status(400).json({ error: "orgId and spaceId required" });
 
     const space = await prisma.space.findFirst({
       where: {
@@ -108,7 +114,10 @@ router.put(
   validate(updateSpaceSchema),
   async (req, res) => {
     try {
-      const { orgId, spaceId } = req.params;
+      const orgId = getStringParam(req.params.orgId);
+      const spaceId = getStringParam(req.params.spaceId);
+      if (!orgId || !spaceId) return res.status(400).json({ error: "orgId and spaceId required" });
+      
       const updates = req.body;
 
       const existingSpace = await prisma.space.findFirst({
