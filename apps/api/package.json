@@ -18,9 +18,9 @@
   "dependencies": {
     "@perch/shared": "workspace:*",
     "@prisma/adapter-neon": "^7.10.0",
+    "@prisma/adapter-pg": "^7.10.0",
     "@prisma/client": "7.10.0",
     "bcryptjs": "^3.0.3",
-    "stripe": "^22.6.2",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
@@ -28,6 +28,7 @@
     "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.13.1",
+    "stripe": "^22.6.2",
     "ws": "^8.21.3",
     "zod": "^4.5.4"
   },

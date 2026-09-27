@@ -1,16 +1,17 @@
 import "dotenv/config"
 import { PrismaClient } from '@prisma/client'
-import { PrismaNeon } from '@prisma/adapter-neon'
+import { PrismaPg } from '@prisma/adapter-pg'
+import { Pool } from 'pg'
 
 const connectionString = process.env.DATABASE_URL
 if (!connectionString) {
   throw new Error('DATABASE_URL environment variable is not set')
 }
 
-// Create Neon adapter with the pooled connection string
-const adapter = new PrismaNeon({
-  connectionString,
-})
+// For containerized/server environments with Neon pooled connection string
+// Use the standard PG adapter with a connection pool
+const pool = new Pool({ connectionString })
+const adapter = new PrismaPg(pool)
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
 export const prisma = globalForPrisma.prisma || new PrismaClient({ adapter })
