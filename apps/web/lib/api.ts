@@ -1,80 +1,71 @@
+import type {
+  SignupInput,
+  LoginInput,
+  Space,
+  CreateSpaceInput,
+} from "@perch/shared";
 
-const API_BASE_URL = 'http://localhost:4000/api'; // Direct to API (Turbopack workaround)
+const BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
-
-function getAuthHeaders(): HeadersInit {
-  const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null;
-  return token ? { 'Authorization': `Bearer ${token}` } : {};
-}
-
-
-export async function apiCall<T>(
-  endpoint: string,
+export async function apiFetch<T>(
+  path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const url = `${API_BASE_URL}${endpoint}`;
-  const headers = {
-    'Content-Type': 'application/json',
-    ...getAuthHeaders(),
-    ...options.headers,
-  };
+  const token =
+    typeof window !== "undefined"
+      ? localStorage.getItem("perch_token")
+      : null;
 
-  const response = await fetch(url, {
+  const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
-    headers,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options.headers,
+    },
   });
 
- 
-  if (response.status === 401) {
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('authToken');
-      window.location.href = '/login';
-    }
-    throw new Error('Unauthorized');
+  if (res.status === 401) {
+    localStorage.removeItem("perch_token");
+    window.location.href = "/login";
+    throw new Error("Unauthorized");
   }
 
-  
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`API error (${response.status}): ${error}`);
+  if (!res.ok) {
+    const error = await res
+      .json()
+      .catch(() => ({ error: "Request failed" }));
+
+    throw new Error(error.error || "Request failed");
   }
 
-  
-  const contentType = response.headers.get('content-type');
-  if (contentType?.includes('application/json')) {
-    return response.json();
-  }
-
-  return {} as T;
+  return res.json();
 }
 
-export async function getAvailability(
-  spaceId: string,
-  date: string
-): Promise<{ spaceId: string; date: string; slots: Array<{ startTime: string; endTime: string }>; count: number }> {
-  return apiCall(`/spaces/${spaceId}/availability?date=${date}`);
-}
+export const api = {
+  auth: {
+    signup: (body: SignupInput) =>
+      apiFetch<{ token: string }>("/api/auth/signup", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
 
+    login: (body: LoginInput) =>
+      apiFetch<{ token: string }>("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+  },
 
-export async function createBooking(data: {
-  spaceId: string;
-  startTime: string;
-  endTime: string;
-  renterEmail: string;
-}): Promise<{ booking: { id: string; status: string; startTime: string; endTime: string } }> {
-  return apiCall('/bookings', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-}
+  spaces: {
+    list: (orgId: string) =>
+      apiFetch<Space[]>(`/api/organizations/${orgId}/spaces`),
 
-
-export async function transitionBooking(
-  bookingId: string,
-  toStatus: string
-): Promise<{ booking: { id: string; status: string } }> {
-  return apiCall(`/bookings/${bookingId}/transition`, {
-    method: 'POST',
-    body: JSON.stringify({ toStatus }),
-  });
-}
+    create: (orgId: string, body: CreateSpaceInput) =>
+      apiFetch<Space>(`/api/organizations/${orgId}/spaces`, {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
+  },
+};
