@@ -1,7 +1,6 @@
 import type {
   SignupInput,
   LoginInput,
-  Space,
   CreateSpaceInput,
 } from "@perch/shared";
 
@@ -43,6 +42,49 @@ export async function apiFetch<T>(
   return res.json();
 }
 
+interface Organization {
+  id: string
+  name: string
+  slug: string
+  createdAt: string
+  role: 'owner' | 'staff'
+  membershipId: string
+}
+
+interface OrganizationsResponse {
+  organizations: Organization[]
+  count: number
+}
+
+interface Space {
+  id: string
+  orgId: string
+  name: string
+  type: 'podcast' | 'photography' | 'gaming'
+  hourlyRate: number
+  depositAmount: number
+  capacity: number
+  createdAt: string
+}
+
+interface AvailabilitySlot {
+  startTime: string
+  endTime: string
+}
+
+interface AvailabilityResponse {
+  slots: AvailabilitySlot[]
+}
+
+export async function getAvailability(
+  spaceId: string,
+  date: string
+): Promise<AvailabilityResponse> {
+  return apiFetch<AvailabilityResponse>(
+    `/api/spaces/${spaceId}/availability?date=${date}`
+  )
+}
+
 export const api = {
   auth: {
     signup: (body: SignupInput) =>
@@ -56,6 +98,11 @@ export const api = {
         method: "POST",
         body: JSON.stringify(body),
       }),
+  },
+
+  organizations: {
+    list: () =>
+      apiFetch<OrganizationsResponse>("/api/organizations"),
   },
 
   spaces: {
