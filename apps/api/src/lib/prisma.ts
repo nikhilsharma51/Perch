@@ -9,7 +9,7 @@ if (!connectionString) {
 }
 
 // For containerized/server environments with Neon pooled connection string
-// Use the standard PG adapter with a connection pool
+// Using the standard PG adapter with a connection pool
 const pool = new Pool({ connectionString })
 const adapter = new PrismaPg(pool)
 

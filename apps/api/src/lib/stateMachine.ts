@@ -1,13 +1,6 @@
-/**
- * Booking State Machine
- * 
- * Pure functions for managing booking state transitions.
- * No database access - just business logic.
- */
 
 import { VALID_TRANSITIONS } from '@perch/shared';
 
-// BookingStatus type from Prisma schema
 type BookingStatus = 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'no_show';
 
 /**

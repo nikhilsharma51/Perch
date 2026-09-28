@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { useState,useEffect } from "react";
 
 export function Nav() {
@@ -50,20 +51,20 @@ export function Nav() {
             </li>
           </ul>
           <div className="flex items-center gap-3">
-            <a
-              href="#"
+            <Link
+              href="/auth/login"
               id="nav-login"
               className="text-sm font-medium text-text-secondary transition-colors hover:text-ink"
             >
               Log in
-            </a>
-            <a
-              href="#"
+            </Link>
+            <Link
+              href="/auth/signup"
               id="nav-signup"
               className="inline-flex items-center justify-center gap-2 rounded-sharp border border-ink bg-ink px-5 py-2.5 text-sm font-medium leading-none text-paper transition-colors hover:bg-[#2e2d2a] active:bg-[#3d3c39]"
             >
               Sign up
-            </a>
+            </Link>
           </div>
         </div>
       </div>
