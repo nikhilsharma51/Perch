@@ -2,6 +2,7 @@ import type {
   SignupInput,
   LoginInput,
   CreateSpaceInput,
+  CreateOrgInput,
 } from "@perch/shared";
 
 const BASE_URL =
@@ -49,6 +50,17 @@ interface Organization {
   createdAt: string
   role: 'owner' | 'staff'
   membershipId: string
+}
+
+interface OrganizationCreateResponse {
+  message: string
+  organization: {
+    id: string
+    name: string
+    slug: string
+    createdAt: string
+    role: 'owner' | 'staff'
+  }
 }
 
 interface OrganizationsResponse {
@@ -103,6 +115,12 @@ export const api = {
   organizations: {
     list: () =>
       apiFetch<OrganizationsResponse>("/api/organizations"),
+
+    create: (body: CreateOrgInput) =>
+      apiFetch<OrganizationCreateResponse>("/api/organizations", {
+        method: "POST",
+        body: JSON.stringify(body),
+      }),
   },
 
   spaces: {

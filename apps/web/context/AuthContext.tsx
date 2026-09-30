@@ -18,6 +18,7 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<void>
   signup: (name: string, email: string, password: string) => Promise<void>
   logout: () => void
+  setOrgId: (orgId: string) => void
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined)
@@ -38,6 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const decodeToken = () => {
       try {
         const token = localStorage.getItem('perch_token')
+        const orgId = localStorage.getItem('perch_org_id')
         if (!token) {
           setUser(null)
           setIsLoading(false)
@@ -56,6 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser({
           userId: decoded.userId,
           email: decoded.email,
+          orgId: orgId || undefined,
         })
       } catch (error) {
         console.error('Failed to decode token:', error)
@@ -102,12 +105,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = (): void => {
     localStorage.removeItem('perch_token')
+    localStorage.removeItem('perch_org_id')
     setUser(null)
     router.replace('/login')
   }
 
+  const setOrgId = (orgId: string): void => {
+    localStorage.setItem('perch_org_id', orgId)
+    setUser((prev) => prev ? { ...prev, orgId } : null)
+  }
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, signup, logout, setOrgId }}>
       {children}
     </AuthContext.Provider>
   )
