@@ -74,9 +74,14 @@ interface Space {
   name: string
   type: 'podcast' | 'photography' | 'gaming'
   hourlyRate: number
-  depositAmount: number
+  depositRate: number
   capacity: number
   createdAt: string
+}
+
+interface SpaceCreateResponse {
+  message: string
+  space: Space
 }
 
 interface AvailabilitySlot {
@@ -125,10 +130,10 @@ export const api = {
 
   spaces: {
     list: (orgId: string) =>
-      apiFetch<Space[]>(`/api/organizations/${orgId}/spaces`),
+      apiFetch<{ spaces: Space[]; count: number }>(`/api/organizations/${orgId}/spaces`),
 
     create: (orgId: string, body: CreateSpaceInput) =>
-      apiFetch<Space>(`/api/organizations/${orgId}/spaces`, {
+      apiFetch<SpaceCreateResponse>(`/api/organizations/${orgId}/spaces`, {
         method: "POST",
         body: JSON.stringify(body),
       }),
