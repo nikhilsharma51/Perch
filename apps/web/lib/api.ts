@@ -93,6 +93,26 @@ interface AvailabilityResponse {
   slots: AvailabilitySlot[]
 }
 
+interface BookingResponse {
+  id: string
+  spaceId: string
+  spaceName: string
+  renterEmail: string
+  renterName: string
+  startTime: string
+  endTime: string
+  status: 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'no_show'
+  amount: number
+  depositPaid: number
+  createdAt: string
+  updatedAt: string
+}
+
+interface BookingsListResponse {
+  bookings: BookingResponse[]
+  count: number
+}
+
 export async function getAvailability(
   spaceId: string,
   date: string
@@ -121,6 +141,9 @@ export const api = {
     list: () =>
       apiFetch<OrganizationsResponse>("/api/organizations"),
 
+    get: (orgId: string) =>
+      apiFetch<Organization>(`/api/organizations/${orgId}`),
+
     create: (body: CreateOrgInput) =>
       apiFetch<OrganizationCreateResponse>("/api/organizations", {
         method: "POST",
@@ -137,5 +160,18 @@ export const api = {
         method: "POST",
         body: JSON.stringify(body),
       }),
+  },
+
+  bookings: {
+    listByOrg: (orgId: string, date?: string) => {
+      const params = new URLSearchParams()
+      if (date) {
+        params.append('date', date)
+      }
+      const query = params.toString()
+      return apiFetch<BookingsListResponse>(
+        `/api/organizations/${orgId}/bookings${query ? `?${query}` : ''}`
+      )
+    },
   },
 };

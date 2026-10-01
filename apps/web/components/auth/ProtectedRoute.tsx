@@ -19,12 +19,10 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     }
   }, [user, isLoading, router])
 
-  // Show skeleton while loading to prevent flash redirect
   if (isLoading) {
     return <FullPageSkeleton />
   }
 
-  // If not loading and no user, return null (redirect happening via useEffect)
   if (!user) {
     return null
   }

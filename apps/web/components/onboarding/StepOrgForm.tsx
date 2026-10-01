@@ -25,7 +25,6 @@ export function StepOrgForm({ onContinue }: StepOrgFormProps) {
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
-  // Auto-generate slug from name if slug hasn't been manually edited
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newName = e.target.value
     setName(newName)
@@ -44,7 +43,7 @@ export function StepOrgForm({ onContinue }: StepOrgFormProps) {
     e.preventDefault()
     setError('')
 
-    // Validation
+
     if (!name.trim()) {
       setError('Organization name is required')
       return
@@ -55,7 +54,6 @@ export function StepOrgForm({ onContinue }: StepOrgFormProps) {
       return
     }
 
-    // Validate slug format (lowercase, numbers, hyphens only)
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
       setError('Slug must contain only lowercase letters, numbers, and hyphens')
       return
@@ -68,16 +66,14 @@ export function StepOrgForm({ onContinue }: StepOrgFormProps) {
         slug: slug.trim(),
       })
 
-      // Store orgId in auth context and localStorage
       setOrgId(response.organization.id)
 
-      // Move to next step
       onContinue()
-    } catch (err) {
+    }
+    catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : 'Failed to create organization'
 
-      // Check if it's a slug-exists error
       if (errorMessage.includes('slug') || errorMessage.includes('SLUG_EXISTS')) {
         setError('This slug is already taken. Please choose another.')
       } else {
@@ -90,7 +86,7 @@ export function StepOrgForm({ onContinue }: StepOrgFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      {/* Org Name Field */}
+
       <div className="flex flex-col gap-2">
         <label htmlFor="name" className="text-sm font-medium text-ink">
           Organization name
@@ -105,7 +101,6 @@ export function StepOrgForm({ onContinue }: StepOrgFormProps) {
         />
       </div>
 
-      {/* Org Slug Field */}
       <div className="flex flex-col gap-2">
         <label htmlFor="slug" className="text-sm font-medium text-ink">
           Organization slug
@@ -123,14 +118,12 @@ export function StepOrgForm({ onContinue }: StepOrgFormProps) {
         </p>
       </div>
 
-      {/* Error Message */}
       {error && (
         <div className="rounded-sharp border border-error/20 bg-error/5 px-4 py-3 text-sm text-error">
           {error}
         </div>
       )}
 
-      {/* Continue Button */}
       <button
         type="submit"
         disabled={isLoading}

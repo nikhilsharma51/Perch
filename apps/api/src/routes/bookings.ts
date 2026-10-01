@@ -18,6 +18,124 @@ const createBookingSchema = z.object({
   renterEmail: z.string().email("Renter email must be a valid email address"),
 });
 
+/**
+ * GET /api/organizations/:orgId/bookings
+ * List all bookings for an organization, optionally filtered by date
+ * Query params:
+ * - date: optional ISO date string (YYYY-MM-DD) to filter bookings on that day
+ */
+router.get("/org/:orgId", authMiddleware, async (req, res) => {
+  try {
+    const orgId = getStringParam(req.params.orgId);
+    if (!orgId) return res.status(400).json({ error: "orgId required" });
+
+    const dateParam = req.query.date as string | undefined;
+    
+    // Verify the user has access to this org
+    const userId = (req as any).user.userId;
+    const membership = await prisma.orgMembership.findFirst({
+      where: {
+        orgId,
+        userId,
+      },
+    });
+
+    if (!membership) {
+      return res.status(403).json({
+        error: "Forbidden",
+        code: "FORBIDDEN",
+        message: "You don't have access to this organization",
+      });
+    }
+
+    // Build the date filter if provided
+    let startOfDay: Date | undefined;
+    let endOfDay: Date | undefined;
+
+    if (dateParam) {
+      try {
+        startOfDay = new Date(dateParam + "T00:00:00.000Z");
+        endOfDay = new Date(dateParam + "T23:59:59.999Z");
+
+        // Validate the date is valid
+        if (isNaN(startOfDay.getTime())) {
+          return res.status(400).json({
+            error: "Invalid date format",
+            code: "INVALID_DATE",
+            message: "Date must be in YYYY-MM-DD format",
+          });
+        }
+      } catch (error) {
+        return res.status(400).json({
+          error: "Invalid date",
+          code: "INVALID_DATE",
+        });
+      }
+    }
+
+    // Fetch bookings for all spaces in this org
+    const bookings = await prisma.booking.findMany({
+      where: {
+        space: {
+          orgId,
+        },
+        ...(startOfDay && endOfDay
+          ? {
+              startTime: {
+                gte: startOfDay,
+                lt: endOfDay,
+              },
+            }
+          : {}),
+      },
+      include: {
+        space: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+        renter: {
+          select: {
+            id: true,
+            email: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        startTime: "asc",
+      },
+    });
+
+    return res.status(200).json({
+      bookings: bookings.map((booking) => ({
+        id: booking.id,
+        spaceId: booking.spaceId,
+        spaceName: booking.space.name,
+        renterEmail: booking.renter.email,
+        renterName: booking.renter.name,
+        startTime: booking.startTime.toISOString(),
+        endTime: booking.endTime.toISOString(),
+        status: booking.status,
+        amount: booking.amount,
+        depositPaid: booking.depositPaid,
+        createdAt: booking.createdAt.toISOString(),
+        updatedAt: booking.updatedAt.toISOString(),
+      })),
+      count: bookings.length,
+    });
+  } catch (error) {
+    console.error("List bookings error:", error);
+    return res.status(500).json({
+      error: "Failed to list bookings",
+      code: "LIST_BOOKINGS_ERROR",
+      details: error instanceof Error ? error.message : String(error),
+    });
+  }
+});
+
+
 
 router.post("/", async (req, res) => {
   let lockId: string | null = null;

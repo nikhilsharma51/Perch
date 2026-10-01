@@ -115,7 +115,6 @@ export function StepSpaceForm({ onContinue }: StepSpaceFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-      {/* Space Name Field */}
       <div className="flex flex-col gap-2">
         <label htmlFor="name" className="text-sm font-medium text-ink">
           Space name
@@ -134,7 +133,6 @@ export function StepSpaceForm({ onContinue }: StepSpaceFormProps) {
         )}
       </div>
 
-      {/* Space Type Field */}
       <div className="flex flex-col gap-2">
         <label htmlFor="type" className="text-sm font-medium text-ink">
           Space type
@@ -155,7 +153,6 @@ export function StepSpaceForm({ onContinue }: StepSpaceFormProps) {
         )}
       </div>
 
-      {/* Hourly Rate Field */}
       <div className="flex flex-col gap-2">
         <label htmlFor="hourlyRate" className="text-sm font-medium text-ink">
           Hourly rate (₹)
@@ -176,7 +173,6 @@ export function StepSpaceForm({ onContinue }: StepSpaceFormProps) {
         )}
       </div>
 
-      {/* Deposit Rate Field */}
       <div className="flex flex-col gap-2">
         <label htmlFor="depositRate" className="text-sm font-medium text-ink">
           Deposit amount (₹)
@@ -197,7 +193,6 @@ export function StepSpaceForm({ onContinue }: StepSpaceFormProps) {
         )}
       </div>
 
-      {/* Capacity Field */}
       <div className="flex flex-col gap-2">
         <label htmlFor="capacity" className="text-sm font-medium text-ink">
           Capacity (people)
@@ -218,14 +213,13 @@ export function StepSpaceForm({ onContinue }: StepSpaceFormProps) {
         )}
       </div>
 
-      {/* General Error Message */}
+    
       {errors.name && formData.name && !formData.name.trim() === false && errors.name.includes('not found') && (
         <div className="rounded-sharp border border-error/20 bg-error/5 px-4 py-3 text-sm text-error">
           {errors.name}
         </div>
       )}
 
-      {/* Action Buttons */}
       <div className="flex flex-col gap-2 mt-4">
         <button
           type="submit"
