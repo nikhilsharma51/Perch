@@ -24,7 +24,7 @@ const createBookingSchema = z.object({
  * Query params:
  * - date: optional ISO date string (YYYY-MM-DD) to filter bookings on that day
  */
-router.get("/org/:orgId", authMiddleware, async (req, res) => {
+router.get("/", authMiddleware, async (req, res) => {
   try {
     const orgId = getStringParam(req.params.orgId);
     if (!orgId) return res.status(400).json({ error: "orgId required" });

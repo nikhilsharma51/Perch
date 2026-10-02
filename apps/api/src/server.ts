@@ -24,7 +24,7 @@ app.get("/health", (_req, res) => res.json({ ok: true }));
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/organizations", organizationRoutes);
-app.use("/api/bookings", bookingsRoutes); 
+app.use("/api/organizations/:orgId/bookings", bookingsRoutes);
 app.use("/api/organizations/:orgId/spaces", spaceRoutes);
 app.use("/api/organizations/:orgId/staff", staffRoutes);
 app.use("/api/spaces", spaceRoutes);

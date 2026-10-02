@@ -10,11 +10,14 @@
   },
   "dependencies": {
     "@perch/shared": "workspace:*",
+    "clsx": "^2.1.1",
     "jwt-decode": "^4.0.0",
+    "lucide-react": "^1.49.0",
     "motion": "^13.4.4",
     "next": "16.3.4",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "tailwind-merge": "^3.7.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",

@@ -3,6 +3,7 @@ import type {
   LoginInput,
   CreateSpaceInput,
   CreateOrgInput,
+  UpdateSpaceInput,
 } from "@perch/shared";
 
 const BASE_URL =
@@ -16,7 +17,7 @@ export async function apiFetch<T>(
     typeof window !== "undefined"
       ? localStorage.getItem("perch_token")
       : null;
-
+      
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
     headers: {
@@ -76,10 +77,16 @@ interface Space {
   hourlyRate: number
   depositRate: number
   capacity: number
+  imageUrl?: string
   createdAt: string
 }
 
 interface SpaceCreateResponse {
+  message: string
+  space: Space
+}
+
+interface SpaceUpdateResponse {
   message: string
   space: Space
 }
@@ -155,23 +162,33 @@ export const api = {
     list: (orgId: string) =>
       apiFetch<{ spaces: Space[]; count: number }>(`/api/organizations/${orgId}/spaces`),
 
+    get: (orgId: string, spaceId: string) =>
+      apiFetch<{ space: Space }>(`/api/organizations/${orgId}/spaces/${spaceId}`),
+
     create: (orgId: string, body: CreateSpaceInput) =>
       apiFetch<SpaceCreateResponse>(`/api/organizations/${orgId}/spaces`, {
         method: "POST",
+        body: JSON.stringify(body),
+      }),
+
+    update: (orgId: string, spaceId: string, body: UpdateSpaceInput) =>
+      apiFetch<SpaceUpdateResponse>(`/api/organizations/${orgId}/spaces/${spaceId}`, {
+        method: "PUT",
         body: JSON.stringify(body),
       }),
   },
 
   bookings: {
     listByOrg: (orgId: string, date?: string) => {
+      console.log('[API] listByOrg called with orgId:', orgId, 'type:', typeof orgId)
       const params = new URLSearchParams()
       if (date) {
         params.append('date', date)
       }
       const query = params.toString()
-      return apiFetch<BookingsListResponse>(
-        `/api/organizations/${orgId}/bookings${query ? `?${query}` : ''}`
-      )
+      const url = `/api/organizations/${orgId}/bookings${query ? `?${query}` : ''}`
+      console.log('[API] Fetching URL:', url)
+      return apiFetch<BookingsListResponse>(url)
     },
   },
 };

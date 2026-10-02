@@ -81,9 +81,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('perch_token', response.token)
 
     const decoded = jwtDecode<DecodedToken>(response.token)
+    const orgId = localStorage.getItem('perch_org_id')
     setUser({
       userId: decoded.userId,
       email: decoded.email,
+      orgId:orgId || undefined
     })
   }
 
@@ -97,9 +99,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.setItem('perch_token', response.token)
 
     const decoded = jwtDecode<DecodedToken>(response.token)
+    const orgId = localStorage.getItem("perch_org_id")
     setUser({
       userId: decoded.userId,
       email: decoded.email,
+      orgId : orgId || undefined
     })
   }
 

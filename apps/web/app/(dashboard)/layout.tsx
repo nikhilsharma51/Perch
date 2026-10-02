@@ -12,65 +12,17 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <ProtectedRoute>
-      {/* 
-        Layout approach: CSS Grid with named template areas
-        
-        Why Grid over Flexbox:
-        - Grid excels at 2D layouts with fixed dimensions (sidebar 240px, header 64px)
-        - Fixed sizes are fragile in flexbox (gap calculations, shrinking behavior)
-        - Grid's template areas make the layout structure visually clear
-        - The three regions (header, sidebar, main) are independent; grid manages them cleanly
-        
-        Structure:
-        - Header spans full width at top (64px tall)
-        - Sidebar fixed left below header (240px wide, dynamic height)
-        - Main content fills remaining space with 32px padding
-        - On mobile (<640px): sidebar hidden via `hidden md:block`
-      */}
-      <div
-        className="grid h-screen"
-        style={{
-          gridTemplateColumns: '1fr',
-          gridTemplateRows: '64px 1fr',
-          gridTemplateAreas: `
-            'header'
-            'main'
-          `,
-        }}
-      >
-        {/* Header */}
-        <div style={{ gridArea: 'header' }}>
+      <div className="flex flex-col md:flex-row h-screen w-full overflow-hidden bg-paper">
+        {/* Sidebar (collapsible on hover, responsive on mobile) */}
+        <Sidebar />
+
+        {/* Main Content Area */}
+        <div className="flex flex-col flex-1 min-w-0 h-full overflow-hidden">
           <Header />
-        </div>
-
-        {/* Main content area with sidebar overlay container */}
-        <div
-          className="grid"
-          style={{
-            gridArea: 'main',
-            gridTemplateColumns: 'auto 1fr',
-            gridTemplateAreas: `
-              'sidebar main'
-            `,
-          }}
-        >
-          {/* Sidebar */}
-          <div style={{ gridArea: 'sidebar' }}>
-            <Sidebar />
-          </div>
-
-          {/* Main content */}
-          <main
-            className="bg-paper overflow-auto"
-            style={{
-              gridArea: 'main',
-              paddingLeft: '32px',
-              paddingRight: '32px',
-              paddingTop: '32px',
-              paddingBottom: '32px',
-            }}
-          >
-            {children}
+          <main className="flex-1 overflow-y-auto px-4 py-6 md:px-8 md:py-8 lg:px-10">
+            <div className="max-w-6xl mx-auto w-full">
+              {children}
+            </div>
           </main>
         </div>
       </div>
