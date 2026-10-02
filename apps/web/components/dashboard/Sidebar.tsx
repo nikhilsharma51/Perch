@@ -64,10 +64,7 @@ const SidebarContext = createContext<SidebarContextProps | undefined>(
 
 export const useSidebar = () => {
   const context = useContext(SidebarContext)
-  if (!context) {
-    throw new Error('useSidebar must be used within a SidebarProvider')
-  }
-  return context
+  return context ?? { open: false, setOpen: () => {}, animate: false }
 }
 
 export const SidebarProvider = ({
@@ -104,6 +101,11 @@ export const Sidebar = ({
   setOpen?: React.Dispatch<React.SetStateAction<boolean>>
   animate?: boolean
 }) => {
+  const existingContext = useContext(SidebarContext)
+  if (existingContext) {
+    return children ?? <DefaultDashboardSidebar />
+  }
+
   return (
     <SidebarProvider open={open} setOpen={setOpen} animate={animate}>
       {children ?? <DefaultDashboardSidebar />}

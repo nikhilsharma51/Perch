@@ -8,7 +8,7 @@ import { acquireSlotLock ,releaseSlotLock } from "../lib/slotLock";
 import { redis } from "../lib/redis";
 import { stripe } from "../lib/stripe";
 import { getStringParam } from "../lib/utils";
-const router = Router();
+const router = Router({ mergeParams: true }); // Inherit :orgId from parent router
 
 
 const createBookingSchema = z.object({

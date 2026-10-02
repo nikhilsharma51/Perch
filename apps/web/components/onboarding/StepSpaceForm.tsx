@@ -48,7 +48,6 @@ export function StepSpaceForm({ onContinue }: StepSpaceFormProps) {
       }))
     }
 
-    // Clear error for this field when user starts typing
     if (errors[name as keyof CreateSpaceInput]) {
       setErrors((prev) => ({
         ...prev,
@@ -109,7 +108,6 @@ export function StepSpaceForm({ onContinue }: StepSpaceFormProps) {
   }
 
   const handleSkip = () => {
-    // Skip space creation and go directly to dashboard
     router.push('/dashboard')
   }
 
@@ -164,7 +162,7 @@ export function StepSpaceForm({ onContinue }: StepSpaceFormProps) {
           placeholder="5000"
           value={formData.hourlyRate || ''}
           onChange={handleInputChange}
-          min="1"
+          min="100"
           step="100"
           className="rounded-sharp border border-border bg-surface px-4 py-3 text-base text-ink placeholder-text-muted focus:border-ink focus:outline-none focus:ring-2 focus:ring-signal focus:ring-opacity-20"
         />
