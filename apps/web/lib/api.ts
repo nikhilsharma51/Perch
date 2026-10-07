@@ -9,7 +9,7 @@ import type {
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
-export async function apiFetch<T>(
+export async function apiFetch<T = any>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
@@ -130,6 +130,8 @@ export async function getAvailability(
 }
 
 export const api = {
+  apiFetch,
+  
   auth: {
     signup: (body: SignupInput) =>
       apiFetch<{ token: string }>("/api/auth/signup", {
@@ -190,5 +192,19 @@ export const api = {
       console.log('[API] Fetching URL:', url)
       return apiFetch<BookingsListResponse>(url)
     },
+
+    get: (bookingId: string) =>
+      apiFetch(`/api/bookings/${bookingId}`),
+
+    transition: (bookingId: string, toStatus: string) =>
+      apiFetch(`/api/bookings/${bookingId}/transition`, {
+        method: "POST",
+        body: JSON.stringify({ toStatus }),
+      }),
+
+    cancel: (bookingId: string) =>
+      apiFetch(`/api/bookings/${bookingId}/cancel`, {
+        method: "POST",
+      }),
   },
 };

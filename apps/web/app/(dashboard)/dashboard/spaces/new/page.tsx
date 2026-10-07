@@ -31,8 +31,8 @@ export default function NewSpacePage() {
   }
 
   return (
-    <div className="space-y-6 sm:space-y-8 max-w-4xl">
-      {/* Breadcrumb / Back Link */}
+    <div className="space-y-6 sm:space-y-8 max-w-4xl mx-auto ">
+
       <motion.div
         initial={{ opacity: 0, x: -6 }}
         animate={{ opacity: 1, x: 0 }}
