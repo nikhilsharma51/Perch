@@ -120,6 +120,22 @@ interface BookingsListResponse {
   count: number
 }
 
+interface StaffMember {
+  membershipId: string
+  userId: string
+  email: string
+  name: string
+  role: 'owner' | 'staff'
+  joinedAt: string
+}
+
+interface StaffListResponse {
+  staff: StaffMember[]
+  count: number
+}
+
+export type { StaffMember, StaffListResponse }
+
 export async function getAvailability(
   spaceId: string,
   date: string
@@ -206,5 +222,27 @@ export const api = {
       apiFetch(`/api/bookings/${bookingId}/cancel`, {
         method: "POST",
       }),
+  },
+
+  staff: {
+    list: (orgId: string) =>
+      apiFetch<StaffListResponse>(`/api/organizations/${orgId}/staff`),
+
+    invite: (orgId: string, email: string, role: 'owner' | 'staff' = 'staff') =>
+      apiFetch<{ message: string; membership: { id: string; role: string; user: { id: string; email: string; name: string } } }>(
+        `/api/organizations/${orgId}/staff/invite`,
+        {
+          method: 'POST',
+          body: JSON.stringify({ email, role }),
+        }
+      ),
+
+    remove: (orgId: string, userId: string) =>
+      apiFetch<{ message: string }>(
+        `/api/organizations/${orgId}/staff/${userId}`,
+        {
+          method: 'DELETE',
+        }
+      ),
   },
 };
