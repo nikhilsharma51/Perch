@@ -27,9 +27,15 @@ const createBookingSchema = z.object({
 router.get("/", authMiddleware, async (req, res) => {
   try {
     const orgId = getStringParam(req.params.orgId);
+    console.log('[Bookings API] GET / called');
+    console.log('[Bookings API] req.params:', req.params);
+    console.log('[Bookings API] orgId extracted:', orgId);
+    console.log('[Bookings API] req.user:', (req as any).user);
+    
     if (!orgId) return res.status(400).json({ error: "orgId required" });
 
     const dateParam = req.query.date as string | undefined;
+    console.log('[Bookings API] dateParam:', dateParam);
     
     // Verify the user has access to this org
     const userId = (req as any).user.userId;
@@ -39,6 +45,8 @@ router.get("/", authMiddleware, async (req, res) => {
         userId,
       },
     });
+
+    console.log('[Bookings API] membership check:', { userId, orgId, found: !!membership });
 
     if (!membership) {
       return res.status(403).json({

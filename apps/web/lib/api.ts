@@ -17,6 +17,14 @@ export async function apiFetch<T = any>(
     typeof window !== "undefined"
       ? localStorage.getItem("perch_token")
       : null;
+  
+  console.log('[apiFetch] Request details:', {
+    path,
+    method: options.method || 'GET',
+    hasToken: !!token,
+    baseUrl: BASE_URL,
+    fullUrl: `${BASE_URL}${path}`
+  });
       
   const res = await fetch(`${BASE_URL}${path}`, {
     ...options,
@@ -27,18 +35,31 @@ export async function apiFetch<T = any>(
     },
   });
 
+  console.log('[apiFetch] Response:', {
+    path,
+    status: res.status,
+    statusText: res.statusText,
+    ok: res.ok
+  });
+
   if (res.status === 401) {
+    console.log('[apiFetch] 401 Unauthorized - clearing token and redirecting');
     localStorage.removeItem("perch_token");
-    window.location.href = "/login";
+    window.location.href = "/auth/login";
     throw new Error("Unauthorized");
   }
 
   if (!res.ok) {
-    const error = await res
-      .json()
-      .catch(() => ({ error: "Request failed" }));
+    let errorData;
+    try {
+      errorData = await res.json();
+      console.log('[apiFetch] Error response body:', errorData);
+    } catch (parseError) {
+      console.log('[apiFetch] Could not parse error response as JSON');
+      errorData = { error: "Request failed" };
+    }
 
-    throw new Error(error.error || "Request failed");
+    throw new Error(errorData.error || "Request failed");
   }
 
   return res.json();
@@ -134,7 +155,7 @@ interface StaffListResponse {
   count: number
 }
 
-export type { StaffMember, StaffListResponse }
+export type { StaffMember, StaffListResponse, Space }
 
 export async function getAvailability(
   spaceId: string,
@@ -243,6 +264,13 @@ export const api = {
         {
           method: 'DELETE',
         }
+      ),
+  },
+
+  public: {
+    getStudioBySlug: (slug: string) =>
+      apiFetch<{ organization: { id: string; name: string; slug: string; createdAt: string; spaces: Space[] } }>(
+        `/api/organizations/by-slug/${slug}`
       ),
   },
 };

@@ -191,4 +191,53 @@ router.put(
   }
 );
 
+
+router.get("/by-slug/:slug", async (req, res) => {
+  try {
+    const slug = getStringParam(req.params.slug);
+    if (!slug) return res.status(400).json({ error: "slug required" });
+
+    const organization = await prisma.organization.findUnique({
+      where: { slug },
+      include: {
+        spaces: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            hourlyRate: true,
+            depositRate: true,
+            capacity: true,
+            imageUrl: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!organization) {
+      return res.status(404).json({
+        error: "Organization not found",
+        code: "ORG_NOT_FOUND",
+      });
+    }
+
+    return res.status(200).json({
+      organization: {
+        id: organization.id,
+        name: organization.name,
+        slug: organization.slug,
+        createdAt: organization.createdAt,
+        spaces: organization.spaces,
+      },
+    });
+  } catch (error) {
+    console.error("Get organization by slug error:", error);
+    return res.status(500).json({
+      error: "Failed to fetch organization",
+      code: "ORG_GET_ERROR",
+    });
+  }
+});
+
 export default router;
