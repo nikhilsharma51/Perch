@@ -1,13 +1,23 @@
 'use client'
 
-import React , { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useRouter } from 'next/navigation'
 import { api } from '@/lib/api'
 import { useSlotStream } from '@/hooks/useSlotStream'
 import { SlotCell } from '@/components/calendar/SlotCell'
 import { BookingDrawer } from '@/components/dashboard/BookingDrawer'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+  ArrowLeft,
+  ArrowRight,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  Clock3,
+  Layers3,
+  Plus,
+  RefreshCw,
+} from 'lucide-react'
 import Link from 'next/link'
 
 interface Space {
@@ -28,7 +38,13 @@ interface AvailabilitySlot {
   renterName?: string
   renterEmail?: string
   bookingId?: string
-  status?: 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'no_show'
+  status?:
+    | 'pending'
+    | 'confirmed'
+    | 'checked_in'
+    | 'completed'
+    | 'cancelled'
+    | 'no_show'
   isAvailable?: boolean
 }
 
@@ -40,18 +56,30 @@ const SLOT_DURATION_MINUTES = 30
 const DEFAULT_OPEN_HOUR = 9
 const DEFAULT_CLOSE_HOUR = 21
 
-function generateTimeSlots(openHour: number = DEFAULT_OPEN_HOUR, closeHour: number = DEFAULT_CLOSE_HOUR): string[] {
+function generateTimeSlots(
+  openHour = DEFAULT_OPEN_HOUR,
+  closeHour = DEFAULT_CLOSE_HOUR,
+): string[] {
   const slots: string[] = []
-  for (let h = openHour; h < closeHour; h++) {
-    for (let m = 0; m < 60; m += SLOT_DURATION_MINUTES) {
-      slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+
+  for (let hour = openHour; hour < closeHour; hour++) {
+    for (let minute = 0; minute < 60; minute += SLOT_DURATION_MINUTES) {
+      slots.push(
+        `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`,
+      )
     }
   }
+
   return slots
 }
 
+// Use local calendar dates rather than UTC to avoid off-by-one dates.
 function formatDate(date: Date): string {
-  return date.toISOString().split('T')[0]
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
 }
 
 function formatDisplayDate(date: Date): string {
@@ -59,64 +87,123 @@ function formatDisplayDate(date: Date): string {
     weekday: 'short',
     month: 'short',
     day: 'numeric',
-    year: date.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined,
+    year:
+      date.getFullYear() !== new Date().getFullYear()
+        ? 'numeric'
+        : undefined,
   })
 }
 
-// Generate end time from start time (30 minutes later)
 function getEndTime(startTime: string): string {
   const [hours, minutes] = startTime.split(':').map(Number)
-  const nextMinutes = minutes + 30
+  const nextMinutes = minutes + SLOT_DURATION_MINUTES
+
   if (nextMinutes >= 60) {
     const nextHours = (hours + 1) % 24
     return `${String(nextHours).padStart(2, '0')}:00`
   }
+
   return `${String(hours).padStart(2, '0')}:${String(nextMinutes).padStart(2, '0')}`
+}
+
+function formatTime(time: string): string {
+  const [hours, minutes] = time.split(':').map(Number)
+  const period = hours >= 12 ? 'PM' : 'AM'
+  const displayHour = hours % 12 || 12
+
+  return `${displayHour}:${String(minutes).padStart(2, '0')} ${period}`
+}
+
+function getSpaceTypeLabel(type: Space['type']): string {
+  switch (type) {
+    case 'podcast':
+      return 'Podcast studio'
+    case 'photography':
+      return 'Photography studio'
+    case 'gaming':
+      return 'Gaming space'
+  }
+}
+
+function getSpaceTypeCode(type: Space['type']): string {
+  switch (type) {
+    case 'podcast':
+      return 'PD'
+    case 'photography':
+      return 'PH'
+    case 'gaming':
+      return 'GM'
+  }
 }
 
 export default function BookingsPage() {
   const { user, isLoading: authLoading } = useAuth()
   const router = useRouter()
+
   const [spaces, setSpaces] = useState<Space[]>([])
   const [selectedDate, setSelectedDate] = useState<Date>(new Date())
-  const [slotLookups, setSlotLookups] = useState<Record<string, SlotLookup>>({})
+  const [slotLookups, setSlotLookups] = useState<
+    Record<string, SlotLookup>
+  >({})
   const [isLoadingSpaces, setIsLoadingSpaces] = useState(true)
   const [isLoadingSlots, setIsLoadingSlots] = useState(true)
-  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null)
+  const [selectedBookingId, setSelectedBookingId] = useState<string | null>(
+    null,
+  )
   const [error, setError] = useState<string | null>(null)
-  const [debugInfo, setDebugInfo] = useState<string>('')
 
-  // Guard against missing orgId
+  const timeSlots = useMemo(() => generateTimeSlots(), [])
+
+  const isToday = formatDate(selectedDate) === formatDate(new Date())
+
+  // Redirect users who have not completed onboarding.
   useEffect(() => {
     if (authLoading) return
+
     if (!user?.orgId) {
       router.push('/onboarding')
-      return
     }
   }, [user, authLoading, router])
 
-  // Fetch spaces
+  // Fetch the organization's spaces.
   useEffect(() => {
     if (authLoading || !user?.orgId) return
 
+    let cancelled = false
+
     const fetchSpaces = async () => {
+      setIsLoadingSpaces(true)
+      setError(null)
+
       try {
-        setError(null)
         const response = await api.spaces.list(user.orgId as string)
-        setSpaces(response.spaces)
-        setDebugInfo(`Loaded ${response.spaces.length} spaces`)
+
+        if (!cancelled) {
+          setSpaces(response.spaces)
+        }
       } catch (err) {
         console.error('Failed to fetch spaces:', err)
-        setError(err instanceof Error ? err.message : 'Failed to load spaces')
+
+        if (!cancelled) {
+          setError(
+            err instanceof Error ? err.message : 'Failed to load spaces',
+          )
+        }
       } finally {
-        setIsLoadingSpaces(false)
+        if (!cancelled) {
+          setIsLoadingSpaces(false)
+        }
       }
     }
 
     fetchSpaces()
+
+    return () => {
+      cancelled = true
+    }
   }, [user?.orgId, authLoading])
 
-  // Fetch availability for a single space (for date changes)
+  // Fetch availability for a single space and date.
   const fetchSpaceAvailabilityForDate = useCallback(
     async (spaceId: string, date: Date) => {
       if (!user?.orgId) return
@@ -126,16 +213,31 @@ export default function BookingsPage() {
         const response = await api.spaces.get(user.orgId, spaceId)
         const space = response.space
 
-        // Try to fetch bookings for this space on the selected date
-        let bookedSlots: { startTime: string; endTime: string; renterName: string; renterEmail: string; status: string; bookingId: string }[] = []
-        
+        let bookedSlots: {
+          startTime: string
+          endTime: string
+          renterName: string
+          renterEmail: string
+          status: string
+          bookingId: string
+        }[] = []
+
         try {
-          const bookingsResponse = await api.apiFetch<any>(
-            `/api/organizations/${user.orgId}/bookings?date=${dateStr}&spaceId=${spaceId}`
+          const bookingsResponse = await api.apiFetch<{
+            bookings?: Array<{
+              id: string
+              startTime: string
+              endTime: string
+              renterName: string
+              renterEmail: string
+              status: string
+            }>
+          }>(
+            `/api/organizations/${user.orgId}/bookings?date=${dateStr}&spaceId=${spaceId}`,
           )
-          
+
           if (bookingsResponse?.bookings) {
-            bookedSlots = bookingsResponse.bookings.map((booking: any) => ({
+            bookedSlots = bookingsResponse.bookings.map((booking) => ({
               startTime: booking.startTime,
               endTime: booking.endTime,
               renterName: booking.renterName,
@@ -145,79 +247,106 @@ export default function BookingsPage() {
             }))
           }
         } catch (err) {
-          // Bookings endpoint may not exist or fail, continue with empty bookings
+          // Preserve the existing behavior if the bookings endpoint fails.
           console.debug('Could not fetch bookings:', err)
         }
 
-        // Generate all possible slots for the day
-        const timeSlots = generateTimeSlots()
         const lookup: SlotLookup = {}
 
-        timeSlots.forEach((startTime) => {
+        generateTimeSlots().forEach((startTime) => {
           const endTime = getEndTime(startTime)
           const key = `${spaceId}|${startTime}`
 
-          // Check if this time slot is booked
-          const booking = bookedSlots.find(
-            (b) => b.startTime === startTime || 
-                   (new Date(`2000-01-01T${b.startTime}`) <= new Date(`2000-01-01T${startTime}`) && 
-                    new Date(`2000-01-01T${b.endTime}`) > new Date(`2000-01-01T${startTime}`))
-          )
+          const slotStart = new Date(`2000-01-01T${startTime}`)
+          const booking = bookedSlots.find((item) => {
+            const bookingStart = new Date(`2000-01-01T${item.startTime}`)
+            const bookingEnd = new Date(`2000-01-01T${item.endTime}`)
+
+            return (
+              item.startTime === startTime ||
+              (bookingStart <= slotStart && bookingEnd > slotStart)
+            )
+          })
 
           lookup[key] = {
             startTime,
             endTime,
             price: space.hourlyRate,
-            ...(booking ? {
-              renterName: booking.renterName,
-              renterEmail: booking.renterEmail,
-              bookingId: booking.bookingId,
-              status: booking.status as any,
-            } : {
-              isAvailable: true,
-            }),
+            ...(booking
+              ? {
+                  renterName: booking.renterName,
+                  renterEmail: booking.renterEmail,
+                  bookingId: booking.bookingId,
+                  status: booking.status as AvailabilitySlot['status'],
+                }
+              : {
+                  isAvailable: true,
+                }),
           }
         })
 
-        setSlotLookups((prev) => ({
-          ...prev,
+        setSlotLookups((previous) => ({
+          ...previous,
           [spaceId]: lookup,
         }))
-
-        setDebugInfo(`Loaded slots for space ${space.name}: ${timeSlots.length} total, ${bookedSlots.length} booked`)
       } catch (err) {
-        console.error(`Failed to fetch availability for space ${spaceId}:`, err)
-        setError(`Failed to load calendar: ${err instanceof Error ? err.message : 'Unknown error'}`)
+        console.error(
+          `Failed to fetch availability for space ${spaceId}:`,
+          err,
+        )
+
+        setError(
+          `Failed to load calendar: ${
+            err instanceof Error ? err.message : 'Unknown error'
+          }`,
+        )
       }
     },
-    [user?.orgId]
+    [user?.orgId],
   )
 
-  // Wrapper that uses current selectedDate (for stream callbacks)
-  const fetchSpaceAvailability = useCallback(
-    (spaceId: string) => fetchSpaceAvailabilityForDate(spaceId, selectedDate),
-    [selectedDate, fetchSpaceAvailabilityForDate]
-  )
-
-  // Initial fetch of all spaces' availability
+  // Initial availability load and refresh whenever the selected date changes.
   useEffect(() => {
     if (isLoadingSpaces || !user?.orgId) return
 
-    setIsLoadingSlots(true)
+    let cancelled = false
+
     const fetchAll = async () => {
-      await Promise.all(spaces.map((space) => fetchSpaceAvailabilityForDate(space.id, selectedDate)))
-      setIsLoadingSlots(false)
+      setIsLoadingSlots(true)
+      setError(null)
+
+      await Promise.all(
+        spaces.map((space) =>
+          fetchSpaceAvailabilityForDate(space.id, selectedDate),
+        ),
+      )
+
+      if (!cancelled) {
+        setIsLoadingSlots(false)
+      }
     }
 
     fetchAll()
-  }, [spaces, user?.orgId, isLoadingSpaces, selectedDate, fetchSpaceAvailabilityForDate])
 
-  // Set up real-time stream for each space (up to 10)
+    return () => {
+      cancelled = true
+    }
+  }, [
+    spaces,
+    user?.orgId,
+    isLoadingSpaces,
+    selectedDate,
+    fetchSpaceAvailabilityForDate,
+  ])
+
+  // Re-fetch the relevant space when its availability stream updates.
   const createStreamCallback = useCallback(
-    (spaceId: string) => () => fetchSpaceAvailabilityForDate(spaceId, selectedDate),
-    [fetchSpaceAvailabilityForDate, selectedDate]
+    (spaceId: string) => () =>
+      fetchSpaceAvailabilityForDate(spaceId, selectedDate),
+    [fetchSpaceAvailabilityForDate, selectedDate],
   )
 
+  // Keep the existing fixed hook calls to satisfy React's hook rules.
   useSlotStream(spaces[0]?.id || '', createStreamCallback(spaces[0]?.id || ''))
   useSlotStream(spaces[1]?.id || '', createStreamCallback(spaces[1]?.id || ''))
   useSlotStream(spaces[2]?.id || '', createStreamCallback(spaces[2]?.id || ''))
@@ -230,18 +359,18 @@ export default function BookingsPage() {
   useSlotStream(spaces[9]?.id || '', createStreamCallback(spaces[9]?.id || ''))
 
   const handlePrevDay = () => {
-    setSelectedDate((prev) => {
-      const newDate = new Date(prev)
-      newDate.setDate(newDate.getDate() - 1)
-      return newDate
+    setSelectedDate((previous) => {
+      const next = new Date(previous)
+      next.setDate(next.getDate() - 1)
+      return next
     })
   }
 
   const handleNextDay = () => {
-    setSelectedDate((prev) => {
-      const newDate = new Date(prev)
-      newDate.setDate(newDate.getDate() + 1)
-      return newDate
+    setSelectedDate((previous) => {
+      const next = new Date(previous)
+      next.setDate(next.getDate() + 1)
+      return next
     })
   }
 
@@ -252,9 +381,15 @@ export default function BookingsPage() {
   const handleSlotClick = (spaceId: string, slot: AvailabilitySlot) => {
     if (slot.bookingId) {
       setSelectedBookingId(slot.bookingId)
-    } else {
-      console.log('Available slot clicked:', { spaceId, startTime: slot.startTime, endTime: slot.endTime })
+      return
     }
+
+    // Slot creation is not implemented here; preserve the existing behavior.
+    console.log('Available slot clicked:', {
+      spaceId,
+      startTime: slot.startTime,
+      endTime: slot.endTime,
+    })
   }
 
   const handleDrawerClose = () => {
@@ -262,8 +397,10 @@ export default function BookingsPage() {
   }
 
   const handleStatusChange = async () => {
-    const bookingSpaceId = Object.entries(slotLookups).find(
-      ([, lookup]) => Object.values(lookup).some((slot) => slot.bookingId === selectedBookingId)
+    const bookingSpaceId = Object.entries(slotLookups).find(([, lookup]) =>
+      Object.values(lookup).some(
+        (slot) => slot.bookingId === selectedBookingId,
+      ),
     )?.[0]
 
     if (bookingSpaceId) {
@@ -271,232 +408,498 @@ export default function BookingsPage() {
     }
   }
 
-  const timeSlots = generateTimeSlots()
-  const isToday = formatDate(selectedDate) === formatDate(new Date())
+  const slotStats = useMemo(() => {
+    const slots = Object.values(slotLookups).flatMap((lookup) =>
+      Object.values(lookup),
+    )
 
-  // Loading state
+    return {
+      available: slots.filter((slot) => !slot.bookingId).length,
+      booked: slots.filter((slot) => Boolean(slot.bookingId)).length,
+    }
+  }, [slotLookups])
+
+  // Loading state.
   if (authLoading || isLoadingSpaces) {
     return (
-      <div className="space-y-4">
-        <div className="h-8 bg-surface-elevated rounded-sharp w-32 animate-pulse" />
-        <div className="grid gap-px" style={{ gridTemplateColumns: `minmax(80px, 1fr) repeat(3, 1fr)` }}>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-12 bg-surface-elevated rounded-sharp animate-pulse" />
+      <div className="space-y-6">
+        <div className="animate-pulse space-y-3">
+          <div className="h-3 w-20 rounded-sharp bg-surface-elevated" />
+          <div className="h-9 w-64 max-w-full rounded-sharp bg-surface-elevated" />
+          <div className="h-4 w-80 max-w-full rounded-sharp bg-surface-elevated" />
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {Array.from({ length: 3 }).map((_, index) => (
+            <div
+              key={index}
+              className="h-24 animate-pulse rounded-sharp border border-border bg-surface"
+            />
           ))}
-          {Array.from({ length: 4 * 12 }).map((_, i) => (
-            <div key={i} className="h-12 bg-surface-elevated rounded-sharp animate-pulse" />
-          ))}
+        </div>
+
+        <div className="overflow-hidden rounded-sharp border border-border bg-surface p-4">
+          <div className="space-y-2">
+            {Array.from({ length: 7 }).map((_, rowIndex) => (
+              <div
+                key={rowIndex}
+                className="grid grid-cols-3 gap-2"
+              >
+                {Array.from({ length: 3 }).map((_, columnIndex) => (
+                  <div
+                    key={columnIndex}
+                    className="h-14 animate-pulse rounded-object bg-surface-elevated"
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
       </div>
     )
   }
 
-  // Empty state
+  // Empty state.
   if (spaces.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 bg-surface border border-border rounded-sharp">
-        <h2 className="text-lg font-semibold text-ink mb-2">No spaces yet</h2>
-        <p className="text-text-muted text-sm mb-6">Add one to start taking bookings</p>
+      <div className="flex min-h-[420px] flex-col items-center justify-center border border-border bg-surface px-6 py-16 text-center">
+        <div className="mb-5 flex h-14 w-14 items-center justify-center border border-border bg-paper text-text-secondary">
+          <CalendarDays size={23} strokeWidth={1.5} />
+        </div>
+
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+          Your workspace
+        </p>
+
+        <h1 className="font-display text-3xl text-ink">
+          No spaces yet
+        </h1>
+
+        <p className="mt-3 max-w-sm text-sm leading-6 text-text-secondary">
+          Create your first space to manage availability, review reservations,
+          and keep your booking schedule organized.
+        </p>
+
         <Link
           href="/dashboard/spaces/new"
-          className="px-4 py-2 bg-ink text-paper rounded-sharp text-sm font-medium hover:bg-[#2e2d2a] transition-colors"
+          className="mt-7 inline-flex items-center gap-2 bg-ink px-4 py-3 text-sm font-medium text-paper transition-colors hover:bg-signal"
         >
+          <Plus size={16} />
           Add your first space
+          <ArrowRight size={15} />
         </Link>
       </div>
     )
   }
 
   return (
-    <div className={`transition-all duration-300 ${selectedBookingId ? 'mr-0 lg:mr-[420px]' : ''}`}>
-      {/* Page Header */}
-      <div className="mb-6 border-b border-border pb-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+    <div
+      className={`min-w-0 transition-[margin] duration-300 ${
+        selectedBookingId ? 'lg:mr-[420px]' : ''
+      }`}
+    >
+      {/* Page heading */}
+      <section className="border-b border-border pb-6">
+        <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-end">
           <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-text-muted">Bookings</p>
-            <h1 className="font-display text-2xl leading-tight text-ink">Availability Calendar</h1>
-          </div>
-          
-          {/* Compact Date Picker */}
-          <div className="flex items-center gap-2 rounded-sharp border border-border bg-surface px-3 py-2 shadow-sm">
-            <button
-              onClick={handlePrevDay}
-              className="rounded-sharp p-1 transition-colors hover:bg-paper"
-              aria-label="Previous day"
-            >
-              <ChevronLeft size={16} className="text-text-muted" />
-            </button>
+            <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-muted">
+              <span className="h-px w-5 bg-signal" />
+              Workspace / Bookings
+            </div>
 
+            <h1 className="font-display text-3xl leading-tight tracking-tight text-ink sm:text-4xl">
+              Availability
+              <span className="text-text-muted"> calendar.</span>
+            </h1>
+
+            <p className="mt-2 max-w-md text-sm leading-6 text-text-secondary">
+              Monitor your spaces, review reservations, and manage the day
+              ahead.
+            </p>
+          </div>
+
+          <div className="flex shrink-0 items-center gap-2">
             <button
+              type="button"
               onClick={handleToday}
-              className={`px-3 py-1 text-xs font-medium rounded-sharp transition-colors ${
-                isToday 
-                  ? 'bg-signal text-surface' 
-                  : 'text-text-secondary hover:bg-paper'
-              }`}
+              disabled={isToday}
+              className="h-10 border border-border px-3 text-xs font-semibold text-text-secondary transition-colors hover:border-ink hover:text-ink disabled:cursor-default disabled:bg-surface-elevated disabled:text-text-muted"
             >
-              {isToday ? 'Today' : formatDisplayDate(selectedDate)}
+              Today
             </button>
 
-            <button
-              onClick={handleNextDay}
-              className="rounded-sharp p-1 transition-colors hover:bg-paper"
-              aria-label="Next day"
-            >
-              <ChevronRight size={16} className="text-text-muted" />
-            </button>
+            <div className="flex h-10 items-center border border-border bg-surface">
+              <button
+                type="button"
+                onClick={handlePrevDay}
+                aria-label="Previous day"
+                className="flex h-full w-10 items-center justify-center border-r border-border text-text-secondary transition-colors hover:bg-paper hover:text-ink"
+              >
+                <ChevronLeft size={17} />
+              </button>
+
+              <button
+                type="button"
+                onClick={handleToday}
+                className="flex min-w-[135px] items-center justify-center gap-2 px-3 text-xs font-semibold tabular-nums text-ink"
+                aria-label="Return to today"
+              >
+                <CalendarDays size={15} className="text-signal" />
+                {formatDisplayDate(selectedDate)}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleNextDay}
+                aria-label="Next day"
+                className="flex h-full w-10 items-center justify-center border-l border-border text-text-secondary transition-colors hover:bg-paper hover:text-ink"
+              >
+                <ChevronRight size={17} />
+              </button>
+            </div>
           </div>
         </div>
+      </section>
 
-        {/* Stats Bar */}
-        {!isLoadingSlots && spaces.length > 0 && (
-          <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-success/20 border border-success" />
-              <span className="text-text-muted">
-                {Object.values(slotLookups).reduce((acc, lookup) => 
-                  acc + Object.values(lookup).filter(s => !s.bookingId).length, 0
-                )} Available
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-signal/20 border border-signal" />
-              <span className="text-text-muted">
-                {Object.values(slotLookups).reduce((acc, lookup) => 
-                  acc + Object.values(lookup).filter(s => s.bookingId).length, 0
-                )} Booked
-              </span>
-            </div>
+      {/* Summary */}
+      <section className="grid grid-cols-1 gap-3 py-5 sm:grid-cols-3">
+        <div className="relative overflow-hidden border border-border bg-surface p-4 sm:p-5">
+          <div className="absolute bottom-0 left-0 top-0 w-[3px] bg-ink" />
+
+          <div className="flex items-start justify-between">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+              Total spaces
+            </p>
+            <Layers3 size={17} className="text-text-muted" strokeWidth={1.6} />
           </div>
-        )}
-      </div>
 
-      {/* Debug Info */}
-      {debugInfo && (
-        <div className="mb-4 p-3 bg-info/10 border border-info rounded-sharp text-info text-xs">
-          {debugInfo}
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="font-display text-4xl leading-none text-ink">
+              {spaces.length.toString().padStart(2, '0')}
+            </span>
+            <span className="text-xs text-text-muted">
+              {spaces.length === 1 ? 'space' : 'spaces'}
+            </span>
+          </div>
+
+          <p className="mt-3 text-xs text-text-secondary">
+            Available for scheduling
+          </p>
         </div>
-      )}
 
-      {/* Error state */}
+        <div className="relative overflow-hidden border border-border bg-surface p-4 sm:p-5">
+          <div className="absolute bottom-0 left-0 top-0 w-[3px] bg-success" />
+
+          <div className="flex items-start justify-between">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+              Open slots
+            </p>
+            <span className="mt-1 h-2 w-2 rounded-full bg-success" />
+          </div>
+
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="font-display text-4xl leading-none text-ink">
+              {slotStats.available.toString().padStart(2, '0')}
+            </span>
+            <span className="text-xs text-text-muted">half-hour slots</span>
+          </div>
+
+          <p className="mt-3 text-xs text-text-secondary">
+            Across loaded spaces
+          </p>
+        </div>
+
+        <div className="relative overflow-hidden border border-border bg-surface p-4 sm:p-5">
+          <div className="absolute bottom-0 left-0 top-0 w-[3px] bg-signal" />
+
+          <div className="flex items-start justify-between">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-text-muted">
+              Booked slots
+            </p>
+            <span className="mt-1 h-2 w-2 rounded-full bg-signal" />
+          </div>
+
+          <div className="mt-4 flex items-baseline gap-2">
+            <span className="font-display text-4xl leading-none text-ink">
+              {slotStats.booked.toString().padStart(2, '0')}
+            </span>
+            <span className="text-xs text-text-muted">half-hour slots</span>
+          </div>
+
+          <p className="mt-3 text-xs text-text-secondary">
+            Includes occupied time intervals
+          </p>
+        </div>
+      </section>
+
+      {/* Calendar section heading and legend */}
+      <section className="mb-3 flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
+        <div>
+          <h2 className="text-sm font-semibold text-ink">
+            Daily schedule
+          </h2>
+          <p className="mt-1 text-xs text-text-muted">
+            {formatDate(selectedDate)} <span className="mx-1.5">/</span>{' '}
+            {formatTime('09:00')} – {formatTime('21:00')}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <div className="flex items-center gap-2 text-[11px] text-text-secondary">
+            <span className="h-2.5 w-2.5 border border-success bg-success/15" />
+            Available
+          </div>
+
+          <div className="flex items-center gap-2 text-[11px] text-text-secondary">
+            <span className="h-2.5 w-2.5 border border-signal bg-signal/15" />
+            Booked
+          </div>
+
+          <div className="flex items-center gap-2 text-[11px] text-text-secondary">
+            <span className="h-2.5 w-2.5 border border-border bg-surface-elevated" />
+            Other
+          </div>
+        </div>
+      </section>
+
+      {/* Errors */}
       {error && (
-        <div className="mb-6 p-4 bg-error/10 border border-error rounded-sharp text-error text-sm">
-          {error}
+        <div
+          role="alert"
+          className="mb-4 flex items-start justify-between gap-3 border border-error/30 bg-error/5 px-4 py-3 text-sm text-error"
+        >
+          <p>{error}</p>
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            aria-label="Dismiss error"
+            className="shrink-0 text-xs font-semibold underline underline-offset-4"
+          >
+            Dismiss
+          </button>
         </div>
       )}
 
-      {/* Calendar Grid */}
-      {isLoadingSlots ? (
-        <div className="overflow-hidden rounded-sharp border border-border bg-surface p-4 shadow-float">
-          <div className="space-y-2">
-            {/* Header skeleton */}
-            <div className="grid gap-2" style={{ gridTemplateColumns: `80px repeat(${spaces.length}, 1fr)` }}>
-              {Array.from({ length: spaces.length + 1 }).map((_, i) => (
-                <div key={`header-${i}`} className="h-10 animate-pulse rounded-sharp bg-surface-elevated" />
+      {/* Calendar */}
+      <section className="overflow-hidden border border-border bg-surface">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border bg-surface px-4 py-3 sm:px-5">
+          <div className="flex items-center gap-2">
+            <Clock3 size={15} className="text-text-muted" />
+            <span className="text-xs font-semibold text-ink">
+              {timeSlots.length} time intervals
+            </span>
+            <span className="text-xs text-text-muted">
+              · 30-minute increments
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2 text-[11px] text-text-muted">
+            {isLoadingSlots ? (
+              <>
+                <RefreshCw size={12} className="animate-spin" />
+                Updating schedule
+              </>
+            ) : (
+              <>
+                <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                Schedule loaded
+              </>
+            )}
+          </div>
+        </div>
+
+        {isLoadingSlots ? (
+          <div className="space-y-2 p-3 sm:p-4">
+            <div className="flex gap-2">
+              <div className="h-14 w-16 shrink-0 animate-pulse bg-surface-elevated" />
+              {spaces.map((space) => (
+                <div
+                  key={space.id}
+                  className="h-14 min-w-[190px] flex-1 animate-pulse bg-surface-elevated"
+                />
               ))}
             </div>
-            {/* Rows skeleton */}
-            {Array.from({ length: 6 }).map((_, rowIdx) => (
-              <div key={`row-${rowIdx}`} className="grid gap-2" style={{ gridTemplateColumns: `80px repeat(${spaces.length}, 1fr)` }}>
-                {Array.from({ length: spaces.length + 1 }).map((_, i) => (
-                  <div key={`cell-${i}`} className="h-16 animate-pulse rounded-object bg-surface-elevated" />
+
+            {Array.from({ length: 8 }).map((_, rowIndex) => (
+              <div key={rowIndex} className="flex gap-2">
+                <div className="h-16 w-16 shrink-0 animate-pulse bg-surface-elevated" />
+                {spaces.map((space) => (
+                  <div
+                    key={space.id}
+                    className="h-16 min-w-[190px] flex-1 animate-pulse bg-surface-elevated"
+                  />
                 ))}
               </div>
             ))}
           </div>
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-sharp border border-border bg-surface shadow-float">
-          {/* Sticky header */}
-          <div className="sticky top-0 z-10 border-b border-border bg-surface">
-            <div
-              className="grid gap-px"
-              style={{ gridTemplateColumns: `80px repeat(${spaces.length}, minmax(200px, 1fr))` }}
-            >
-              {/* Time column header */}
-              <div className="bg-surface px-3.5 py-4 text-[11px] font-semibold uppercase tracking-wide text-text-muted">
-                Time
-              </div>
-              
-              {/* Space column headers */}
-              {spaces.map((space) => (
-                <div
-                  key={`header-${space.id}`}
-                  className="border-l border-border/50 bg-surface px-4 py-3.5"
-                >
-                  <div className="truncate text-[13px] font-semibold text-ink" title={space.name}>
-                    {space.name}
-                  </div>
-                  <div className="mt-1 text-[11px] text-text-muted">
-                    {space.type === 'podcast' && '🎙️ Podcast'}
-                    {space.type === 'photography' && '📷 Photography'}
-                    {space.type === 'gaming' && '🎮 Gaming'}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Calendar body */}
+        ) : (
           <div className="overflow-x-auto">
             <div
-              className="grid"
-              style={{ gridTemplateColumns: `80px repeat(${spaces.length}, minmax(200px, 1fr))` }}
+              className="min-w-full"
+              style={{
+                minWidth: `${80 + spaces.length * 210}px`,
+              }}
             >
-              {/* Rows: Time slots */}
-              {timeSlots.map((startTime, idx) => (
-                <React.Fragment key={`row-${startTime}`}>
-                  {/* Time label */}
-                  <div className={`sticky left-0 z-10 border-t border-border/30 p-3 text-xs font-medium text-text-muted ${
-                    idx % 2 === 0 ? 'bg-paper/70' : 'bg-paper/50'
-                  }`}>
-                    <div className="tabular-nums font-semibold">{startTime}</div>
+              {/* Space headers */}
+              <div
+                className="sticky top-0 z-20 grid border-b border-border bg-surface"
+                style={{
+                  gridTemplateColumns: `80px repeat(${spaces.length}, minmax(210px, 1fr))`,
+                }}
+              >
+                <div className="sticky left-0 z-30 flex items-center border-r border-border bg-paper px-3 py-4">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-text-muted">
+                    Time
+                  </span>
+                </div>
+
+                {spaces.map((space, index) => (
+                  <div
+                    key={space.id}
+                    className={`min-w-0 px-3 py-3.5 sm:px-4 ${
+                      index > 0 ? 'border-l border-border' : ''
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center border border-border bg-paper font-display text-sm text-text-secondary">
+                        {getSpaceTypeCode(space.type)}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <h3
+                          className="truncate text-[13px] font-semibold text-ink"
+                          title={space.name}
+                        >
+                          {space.name}
+                        </h3>
+
+                        <p className="mt-1 truncate text-[11px] text-text-muted">
+                          {getSpaceTypeLabel(space.type)}
+                        </p>
+
+                        <p className="mt-2 text-xs font-medium tabular-nums text-text-secondary">
+                          ₹{(space.hourlyRate).toLocaleString('en-IN')}
+                          <span className="ml-1 font-normal text-text-muted">
+                            / hour
+                          </span>
+                        </p>
+                      </div>
+                    </div>
                   </div>
+                ))}
+              </div>
 
-                  {/* Cells for each space */}
-                  {spaces.map((space) => {
-                    const key = `${space.id}|${startTime}`
-                    const slot = slotLookups[space.id]?.[key]
+              {/* Time slots */}
+              <div className="grid">
+                {timeSlots.map((startTime, index) => {
+                  const hourLabel =
+                    startTime.endsWith(':00')
+                      ? formatTime(startTime)
+                      : null
 
-                    return (
+                  return (
+                    <div
+                      key={startTime}
+                      className="grid"
+                      style={{
+                        gridTemplateColumns: `80px repeat(${spaces.length}, minmax(210px, 1fr))`,
+                      }}
+                    >
                       <div
-                        key={key}
-                        className={`border-t border-l border-border/30 p-1.5 transition-colors ${
-                          idx % 2 === 0 ? 'bg-surface' : 'bg-surface/70'
+                        className={`sticky left-0 z-10 flex min-h-[76px] flex-col justify-start border-b border-r border-border px-2.5 py-3 ${
+                          index % 2 === 0 ? 'bg-paper' : 'bg-surface'
                         }`}
                       >
-                        {!slot ? (
-                          <div className="h-16 flex items-center justify-center text-xs text-text-muted rounded-object border border-dashed border-border/50">
-                            Loading...
-                          </div>
-                        ) : (
-                          <SlotCell
-                            startTime={startTime}
-                            endTime={slot.endTime}
-                            price={slot.price}
-                            state={slot.bookingId ? 'booked' : 'available'}
-                            booking={
-                              slot.bookingId
-                                ? {
-                                    renterName: slot.renterName || 'Unknown',
-                                    status: slot.status as 'pending' | 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'no_show',
-                                  }
-                                : undefined
-                            }
-                            onClick={() => handleSlotClick(space.id, slot)}
-                          />
+                        <span className="text-[11px] font-semibold tabular-nums text-ink">
+                          {hourLabel ?? startTime}
+                        </span>
+
+                        {hourLabel && (
+                          <span className="mt-1 text-[9px] uppercase tracking-wide text-text-muted">
+                            {startTime.slice(0, 2) < '12' ? 'Morning' : startTime.slice(0, 2) < '17' ? 'Afternoon' : 'Evening'}
+                          </span>
                         )}
                       </div>
-                    )
-                  })}
-                </React.Fragment>
-              ))}
+
+                      {spaces.map((space) => {
+                        const key = `${space.id}|${startTime}`
+                        const slot = slotLookups[space.id]?.[key]
+
+                        return (
+                          <div
+                            key={key}
+                            className={`min-w-0 border-b border-l border-border p-1.5 sm:p-2 ${
+                              index % 2 === 0 ? 'bg-surface' : 'bg-paper/40'
+                            }`}
+                          >
+                            {slot ? (
+                              <SlotCell
+                                startTime={startTime}
+                                endTime={slot.endTime}
+                                price={slot.price}
+                                state={slot.bookingId ? 'booked' : 'available'}
+                                booking={
+                                  slot.bookingId
+                                    ? {
+                                        renterName:
+                                          slot.renterName || 'Unknown',
+                                        status:
+                                          slot.status || 'pending',
+                                      }
+                                    : undefined
+                                }
+                                onClick={() =>
+                                  handleSlotClick(space.id, slot)
+                                }
+                              />
+                            ) : (
+                              <div className="flex min-h-[60px] items-center justify-center border border-dashed border-border/70 text-[10px] text-text-muted">
+                                <span className="hidden sm:inline">
+                                  No slot data
+                                </span>
+                                <span className="sm:hidden">—</span>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Booking Drawer */}
+        {/* Calendar footer */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border bg-paper/70 px-4 py-3 sm:px-5">
+          <p className="text-[11px] leading-5 text-text-muted">
+            Select a booked slot to view its reservation details.
+          </p>
+
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={handlePrevDay}
+              className="flex h-8 items-center gap-1 border border-border bg-surface px-2.5 text-[11px] font-medium text-text-secondary transition-colors hover:border-ink hover:text-ink"
+            >
+              <ArrowLeft size={13} />
+              Previous
+            </button>
+
+            <button
+              type="button"
+              onClick={handleNextDay}
+              className="flex h-8 items-center gap-1 border border-border bg-surface px-2.5 text-[11px] font-medium text-text-secondary transition-colors hover:border-ink hover:text-ink"
+            >
+              Next
+              <ArrowRight size={13} />
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* Booking detail drawer */}
       <BookingDrawer
         bookingId={selectedBookingId}
         onClose={handleDrawerClose}

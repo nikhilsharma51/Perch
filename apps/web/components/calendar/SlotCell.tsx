@@ -1,33 +1,79 @@
-"use client";
 
-import { Clock } from "lucide-react";
-import React from "react";
-import { cn } from "@/lib/utils";
+'use client'
 
-export type SlotState = "available" | "booked" | "locked" | "unavailable";
+import React from 'react'
+import { Clock3, Check, LockKeyhole, CircleSlash } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
-export type BookingStatus = "pending" | "confirmed" | "checked_in" | "completed" | "cancelled" | "no_show";
+export type SlotState =
+  | 'available'
+  | 'booked'
+  | 'locked'
+  | 'unavailable'
+
+export type BookingStatus =
+  | 'pending'
+  | 'confirmed'
+  | 'checked_in'
+  | 'completed'
+  | 'cancelled'
+  | 'no_show'
 
 interface SlotCellProps {
-  startTime: string;
-  endTime: string;
-  price: number;
-  state: SlotState;
+  startTime: string
+  endTime: string
+  price: number
+  state: SlotState
   booking?: {
-    renterName: string;
-    status: BookingStatus;
-  };
-  onClick?: () => void;
+    renterName: string
+    status: BookingStatus
+  }
+  onClick?: () => void
 }
 
-const statusColorMap: Record<BookingStatus, { bg: string; text: string; dot: string }> = {
-  pending: { bg: "bg-text-muted/10", text: "text-text-muted", dot: "bg-text-muted" },
-  confirmed: { bg: "bg-signal/10", text: "text-signal", dot: "bg-signal" },
-  checked_in: { bg: "bg-info/10", text: "text-info", dot: "bg-info" },
-  completed: { bg: "bg-success/10", text: "text-success", dot: "bg-success" },
-  cancelled: { bg: "bg-text-muted/10", text: "text-text-muted line-through", dot: "bg-text-muted" },
-  no_show: { bg: "bg-error/10", text: "text-error", dot: "bg-error" },
-};
+const statusConfig: Record<
+  BookingStatus,
+  { label: string; className: string; dotClassName: string }
+> = {
+  pending: {
+    label: 'Pending',
+    className: 'border-warning/25 bg-warning/10 text-warning',
+    dotClassName: 'bg-warning',
+  },
+  confirmed: {
+    label: 'Confirmed',
+    className: 'border-signal/20 bg-signal/10 text-signal',
+    dotClassName: 'bg-signal',
+  },
+  checked_in: {
+    label: 'Checked in',
+    className: 'border-info/25 bg-info/10 text-info',
+    dotClassName: 'bg-info',
+  },
+  completed: {
+    label: 'Completed',
+    className: 'border-success/25 bg-success/10 text-success',
+    dotClassName: 'bg-success',
+  },
+  cancelled: {
+    label: 'Cancelled',
+    className: 'border-border bg-paper text-text-muted',
+    dotClassName: 'bg-text-muted',
+  },
+  no_show: {
+    label: 'No-show',
+    className: 'border-error/25 bg-error/10 text-error',
+    dotClassName: 'bg-error',
+  },
+}
+
+function formatTime(time: string): string {
+  const [hours, minutes] = time.split(':').map(Number)
+  const period = hours >= 12 ? 'PM' : 'AM'
+  const hour = hours % 12 || 12
+
+  return `${hour}:${String(minutes).padStart(2, '0')} ${period}`
+}
 
 export function SlotCell({
   startTime,
@@ -37,94 +83,141 @@ export function SlotCell({
   booking,
   onClick,
 }: SlotCellProps) {
-  const isInteractive = state === "available" || state === "booked";
-  const displayPrice = (price / 100).toFixed(2);
+  const timeLabel = `${formatTime(startTime)} – ${formatTime(endTime)}`
 
-  const baseClasses = cn(
-    "relative flex items-center justify-between p-3 text-sm font-medium transition-all",
-  );
-
-  const stateClasses = {
-    available: cn(
-      "bg-surface border border-border rounded-object cursor-pointer",
-      "hover:border-ink hover:border-[1.5px]",
-    ),
-    booked: cn(
-      "bg-surface border border-border rounded-object cursor-pointer",
-    ),
-    locked: cn(
-      "bg-surface border border-border rounded-object cursor-default slot-cell-locked-stripes",
-      "text-text-muted opacity-75",
-    ),
-    unavailable: cn(
-      "bg-paper rounded-object cursor-default",
-      "text-text-muted",
-    ),
-  };
-
-  if (state === "available") {
+  if (state === 'available') {
     return (
       <button
-        onClick={onClick}
-        className={cn(baseClasses, stateClasses.available)}
         type="button"
+        onClick={onClick}
+        aria-label={`Available from ${timeLabel}, ₹${(price / 100).toFixed(2)}`}
+        className={cn(
+          'group relative flex min-h-[60px] w-full flex-col justify-between',
+          'overflow-hidden border border-border bg-surface px-2.5 py-2 text-left',
+          'transition-colors duration-150',
+          'hover:border-success/60 hover:bg-success/[0.04]',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal focus-visible:ring-offset-1',
+        )}
       >
-        <div className="flex flex-col gap-1">
-          <span className="tabular">{startTime}</span>
-          <span className="text-xs text-text-muted">↓</span>
-          <span className="tabular">{endTime}</span>
-        </div>
-        <span className="tabular">₹{displayPrice}</span>
+        <span className="flex items-center justify-between gap-1">
+          <span className="truncate text-[10px] font-medium tabular-nums text-text-secondary">
+            {formatTime(startTime)}
+          </span>
+
+          <span className="flex h-4 w-4 shrink-0 items-center justify-center border border-success/30 bg-success/[0.07] text-success transition-colors group-hover:bg-success group-hover:text-white">
+            <Check size={10} strokeWidth={2.5} />
+          </span>
+        </span>
+
+        <span className="mt-2 flex items-end justify-between gap-1">
+          <span className="text-[11px] font-semibold tabular-nums text-ink">
+            ₹{(price).toFixed(2)}
+          </span>
+
+          <span className="text-[9px] font-medium uppercase tracking-wide text-text-muted opacity-0 transition-opacity group-hover:opacity-100">
+            Open
+          </span>
+        </span>
       </button>
-    );
+    )
   }
 
-  if (state === "booked" && booking) {
-    const colors = statusColorMap[booking.status];
-    const showPulse = booking.status === "checked_in";
+  if (state === 'booked') {
+    const status = booking
+      ? statusConfig[booking.status]
+      : statusConfig.pending
 
     return (
       <button
-        onClick={onClick}
-        className={cn(baseClasses, stateClasses.booked)}
         type="button"
+        onClick={onClick}
+        aria-label={`Booked from ${timeLabel} by ${booking?.renterName || 'Unknown'}. Status: ${status.label}`}
+        className={cn(
+          'group relative flex min-h-[60px] w-full flex-col justify-between',
+          'overflow-hidden border border-signal/20 bg-signal/[0.045] px-2.5 py-2 text-left',
+          'transition-colors duration-150 hover:border-signal/55 hover:bg-signal/[0.08]',
+          'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-signal focus-visible:ring-offset-1',
+        )}
       >
-        <div className="flex flex-col gap-2">
-          <p className="truncate text-xs font-medium">{booking.renterName}</p>
-          <div
+        <span className="absolute bottom-0 left-0 top-0 w-[2px] bg-signal/70 transition-colors group-hover:bg-signal" />
+
+        <span className="flex min-w-0 items-center justify-between gap-1 pl-0.5">
+          <span className="truncate text-[10px] font-medium tabular-nums text-text-secondary">
+            {formatTime(startTime)}
+          </span>
+
+          <span
             className={cn(
-              "inline-flex items-center gap-1.5 px-2 py-1 rounded-object text-xs w-fit",
-              colors.bg,
+              'h-1.5 w-1.5 shrink-0 rounded-full',
+              status.dotClassName,
+            )}
+          />
+        </span>
+
+        <span
+          className="mt-2 block truncate pl-0.5 text-[11px] font-semibold text-ink"
+          title={booking?.renterName || 'Unknown'}
+        >
+          {booking?.renterName || 'Unknown'}
+        </span>
+
+        <span className="mt-1 flex min-w-0 items-center justify-between gap-1 pl-0.5">
+          <span
+            className={cn(
+              'inline-flex max-w-full items-center border px-1.5 py-0.5',
+              'text-[9px] font-medium leading-none',
+              status.className,
             )}
           >
-            <div className={cn("size-1.5 rounded-full", colors.dot, showPulse && "badge-checked-in-dot")} />
-            <span className={colors.text}>
-              {booking.status === "cancelled" ? "Cancelled" : booking.status.charAt(0).toUpperCase() + booking.status.slice(1).replace(/_/g, " ")}
-            </span>
-          </div>
-        </div>
+            <span className="truncate">{status.label}</span>
+          </span>
+
+          <span className="shrink-0 text-[9px] text-text-muted opacity-0 transition-opacity group-hover:opacity-100">
+            View
+          </span>
+        </span>
       </button>
-    );
+    )
   }
 
-  if (state === "locked") {
+  if (state === 'locked') {
     return (
       <div
-        className={cn(baseClasses, stateClasses.locked)}
+        className={cn(
+          'slot-cell-locked-stripes flex min-h-[60px] w-full flex-col justify-between',
+          'border border-border/70 px-2.5 py-2',
+        )}
+        aria-label={`Locked from ${timeLabel}`}
       >
-        <div className="flex flex-col gap-1">
-          <span className="tabular text-xs">{startTime}</span>
-        </div>
-        <Clock size={14} className="absolute top-1 right-1" />
+        <span className="flex items-center justify-between gap-1">
+          <span className="truncate text-[10px] font-medium tabular-nums text-text-secondary">
+            {formatTime(startTime)}
+          </span>
+          <LockKeyhole size={12} className="shrink-0 text-text-muted" />
+        </span>
+
+        <span className="mt-2 text-[10px] font-medium text-text-muted">
+          Locked
+        </span>
       </div>
-    );
+    )
   }
 
   return (
     <div
-      className={cn(baseClasses, stateClasses.unavailable)}
+      className="flex min-h-[60px] w-full flex-col justify-between border border-dashed border-border bg-paper/70 px-2.5 py-2"
+      aria-label={`Unavailable from ${timeLabel}`}
     >
-      <span className="tabular text-xs">{startTime}</span>
+      <span className="flex items-center justify-between gap-1">
+        <span className="truncate text-[10px] font-medium tabular-nums text-text-muted">
+          {formatTime(startTime)}
+        </span>
+        <CircleSlash size={12} className="shrink-0 text-text-muted/70" />
+      </span>
+
+      <span className="mt-2 text-[10px] font-medium text-text-muted">
+        Unavailable
+      </span>
     </div>
-  );
+  )
 }
