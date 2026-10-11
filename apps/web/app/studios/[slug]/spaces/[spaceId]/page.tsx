@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { api, getAvailability } from '@/lib/api'
+import { useSlotStream } from '@/hooks/useSlotStream'
 import { DateNavigation } from '@/components/calendar/DateNavigation'
 import { SlotCell } from '@/components/calendar/SlotCell'
 import { ChevronLeft } from 'lucide-react'
@@ -133,6 +134,15 @@ export default function RenterSpaceBookingPage({
   useEffect(() => {
     fetchAvailability(selectedDate)
   }, [selectedDate, fetchAvailability])
+
+  // Callback for SSE updates - wrapped in useCallback to avoid reconnections
+  const handleSlotStreamUpdate = useCallback(() => {
+    // Refetch availability when we get an SSE event
+    fetchAvailability(selectedDate)
+  }, [selectedDate, fetchAvailability])
+
+  // Connect to SSE stream for real-time updates
+  useSlotStream(params?.spaceId || '', handleSlotStreamUpdate)
 
   // Date constraints
   const today = new Date()
