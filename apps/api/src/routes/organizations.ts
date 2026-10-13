@@ -31,6 +31,8 @@ router.post("/", authMiddleware, validate(createOrgSchema), async (req, res) => 
         data: { name, slug },
       });
 
+      console.log('[ORG_CREATE] Org created:', org.id);
+
       const membership = await tx.orgMembership.create({
         data: {
           orgId: org.id,
@@ -38,6 +40,8 @@ router.post("/", authMiddleware, validate(createOrgSchema), async (req, res) => 
           role: "owner",
         },
       });
+
+      console.log('[ORG_CREATE] Membership created:', membership.id);
 
       return { org, membership };
     });
@@ -54,6 +58,7 @@ router.post("/", authMiddleware, validate(createOrgSchema), async (req, res) => 
     });
   } catch (error) {
     console.error("Create organization error:", error);
+    console.error("Full error details:", JSON.stringify(error, null, 2));
     return res.status(500).json({
       error: "Failed to create organization",
       code: "ORG_CREATE_ERROR",

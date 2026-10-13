@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
+import Link from 'next/link'
 import { api } from '@/lib/api'
 import { SignOut, Buildings, CaretDown } from 'phosphor-react'
 
@@ -30,8 +31,8 @@ export function Header() {
 
     const fetchOrg = async () => {
       try {
-        const organization = await api.organizations.get(user.orgId!)
-        setOrg(organization)
+        const response = await api.organizations.get(user.orgId!)
+        setOrg(response.organization)
       } catch (error) {
         console.error('Failed to fetch organization:', error)
         setOrg(null)
@@ -102,7 +103,19 @@ export function Header() {
       </div>
 
       {/* Right: User profile menu */}
-      <div className="relative" ref={dropdownRef}>
+      <div className="flex items-center gap-3">
+        {/* View as Renter button */}
+        {org?.slug && (
+          <Link
+            href={`/studios/${org.slug}`}
+            className="px-4 py-2 bg-signal text-paper text-xs font-medium rounded-sharp hover:bg-[#8f2c23] transition-colors whitespace-nowrap"
+          >
+            View as Renter
+          </Link>
+        )}
+
+        {/* User profile menu */}
+        <div className="relative" ref={dropdownRef}>
         <button
           onClick={() => setDropdownOpen(!dropdownOpen)}
           className="flex items-center gap-2.5 py-1.5 px-2 rounded-sharp hover:bg-paper transition-colors text-left"
@@ -149,6 +162,7 @@ export function Header() {
             </div>
           </div>
         )}
+        </div>
       </div>
     </header>
   )

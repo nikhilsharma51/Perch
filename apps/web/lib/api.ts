@@ -188,7 +188,7 @@ export const api = {
       apiFetch<OrganizationsResponse>("/api/organizations"),
 
     get: (orgId: string) =>
-      apiFetch<Organization>(`/api/organizations/${orgId}`),
+      apiFetch<{ organization: Organization }>(`/api/organizations/${orgId}`),
 
     create: (body: CreateOrgInput) =>
       apiFetch<OrganizationCreateResponse>("/api/organizations", {

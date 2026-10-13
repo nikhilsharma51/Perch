@@ -56,7 +56,7 @@ export default function StaffPage() {
         api.organizations.get(user.orgId as string),
       ])
       setStaff(response.staff)
-      setOrg(organization)
+      setOrg(organization.organization)
     } catch (err) {
       console.error('Failed to fetch staff or organization:', err)
       setError(err instanceof Error ? err.message : 'Failed to load staff members')

@@ -26,6 +26,14 @@ export function Nav() {
           </a>
           <ul className="hidden items-center gap-8 md:flex">
             <li>
+              <Link
+                href="/studios"
+                className="text-sm font-medium text-text-secondary transition-colors hover:text-ink"
+              >
+                Book your slot
+              </Link>
+            </li>
+            <li>
               <a
                 href="#how-it-works"
                 className="text-sm font-medium text-text-secondary transition-colors hover:text-ink"
@@ -51,6 +59,12 @@ export function Nav() {
             </li>
           </ul>
           <div className="flex items-center gap-3">
+            <Link
+              href="/studios"
+              className="text-sm font-medium text-text-secondary transition-colors hover:text-ink"
+            >
+              Book your slot
+            </Link>
             <Link
               href="/auth/login"
               id="nav-login"
