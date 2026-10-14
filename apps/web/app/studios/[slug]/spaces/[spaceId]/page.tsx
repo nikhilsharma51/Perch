@@ -95,7 +95,7 @@ export default function RenterSpaceBookingPage({
   // Fetch availability for selected date
   const fetchAvailability = useCallback(
     async (date: Date) => {
-      if (!params?.spaceId) return
+      if (!params?.spaceId || !space) return
 
       try {
         setIsLoadingSlots(true)
@@ -127,7 +127,7 @@ export default function RenterSpaceBookingPage({
         setIsLoadingSlots(false)
       }
     },
-    [params?.spaceId, space?.hourlyRate]
+    [params?.spaceId, space]
   )
 
   // Fetch slots when date changes

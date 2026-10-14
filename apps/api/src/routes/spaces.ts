@@ -48,6 +48,7 @@ router.post(
       
       const { name, type, hourlyRate, depositRate, capacity, imageUrl } = req.body;
 
+      // Create space with default open hours (9am-6pm, all days open)
       const space = await prisma.space.create({
         data: {
           orgId,
@@ -57,6 +58,18 @@ router.post(
           depositRate,
           capacity,
           imageUrl,
+          openHours: {
+            create: [
+              // Sunday through Saturday (0-6)
+              { dayOfWeek: 0, startTime: "09:00", endTime: "18:00", isClosed: false },
+              { dayOfWeek: 1, startTime: "09:00", endTime: "18:00", isClosed: false },
+              { dayOfWeek: 2, startTime: "09:00", endTime: "18:00", isClosed: false },
+              { dayOfWeek: 3, startTime: "09:00", endTime: "18:00", isClosed: false },
+              { dayOfWeek: 4, startTime: "09:00", endTime: "18:00", isClosed: false },
+              { dayOfWeek: 5, startTime: "09:00", endTime: "18:00", isClosed: false },
+              { dayOfWeek: 6, startTime: "09:00", endTime: "18:00", isClosed: false },
+            ],
+          },
         },
       });
 

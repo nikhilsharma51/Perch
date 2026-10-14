@@ -240,9 +240,24 @@ export const api = {
       }),
 
     cancel: (bookingId: string) =>
-      apiFetch(`/api/bookings/${bookingId}/cancel`, {
-        method: "POST",
-      }),
+      apiFetch<{ message: string; booking: any; refund: { issued: boolean; refundId: string | null; reason: string } }>(
+        `/api/bookings/${bookingId}/cancel`,
+        { method: 'POST' }
+      ),
+
+    create: (data: {
+      spaceId: string
+      renterEmail: string
+      startTime: string
+      endTime: string
+    }) =>
+      apiFetch<{ booking: BookingResponse }>(
+        `/api/bookings`,
+        {
+          method: 'POST',
+          body: JSON.stringify(data),
+        }
+      ),
   },
 
   staff: {
