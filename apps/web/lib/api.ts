@@ -241,6 +241,12 @@ export const api = {
         method: "POST",
         body: JSON.stringify(body),
       }),
+
+    update: (orgId: string, body: Partial<CreateOrgInput>) =>
+      apiFetch<{ message: string; organization: Organization }>(`/api/organizations/${orgId}`, {
+        method: "PUT",
+        body: JSON.stringify(body),
+      }),
   },
 
   spaces: {

@@ -95,8 +95,6 @@ export default async function StudioPage({ params }: StudioPageProps) {
 interface SpaceCardProps {
   space: Space
   slug: string
-  hourlyRate: number
-  depositRate: number
 }
 
 function SpaceCard({ space, slug }: SpaceCardProps) {

@@ -73,7 +73,7 @@ function generateTimeSlots(
   return slots
 }
 
-// Use local calendar dates rather than UTC to avoid off-by-one dates.
+
 function formatDate(date: Date): string {
   const year = date.getFullYear()
   const month = String(date.getMonth() + 1).padStart(2, '0')
@@ -305,7 +305,7 @@ export default function BookingsPage() {
     [user?.orgId],
   )
 
-  // Initial availability load and refresh whenever the selected date changes.
+  
   useEffect(() => {
     if (isLoadingSpaces || !user?.orgId) return
 
