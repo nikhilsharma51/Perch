@@ -55,12 +55,10 @@ export default function RenterSpaceBookingPage({
   const [isLoadingSlots, setIsLoadingSlots] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  // Resolve params from promise
   useEffect(() => {
     paramsPromise.then(setParams)
   }, [paramsPromise])
 
-  // Fetch space and org data
   useEffect(() => {
     if (!params) return
 
@@ -68,7 +66,6 @@ export default function RenterSpaceBookingPage({
       try {
         setError(null)
 
-        // Fetch org by slug to get spaces array
         const orgResponse = await api.public.getStudioBySlug(params.slug)
         const foundSpace = orgResponse.organization.spaces.find(
           (s: any) => s.id === params.spaceId
@@ -92,7 +89,6 @@ export default function RenterSpaceBookingPage({
     fetchData()
   }, [params])
 
-  // Fetch availability for selected date
   const fetchAvailability = useCallback(
     async (date: Date) => {
       if (!params?.spaceId || !space) return
@@ -104,9 +100,8 @@ export default function RenterSpaceBookingPage({
         const dateStr = formatDate(date)
         const response = await getAvailability(params.spaceId, dateStr)
 
-        // Convert response slots to renter-view format
+        
         const renterSlots: RenterSlot[] = response.slots.map((slot: any) => {
-          // Parse ISO strings to extract time
           const startDate = new Date(slot.startTime)
           const startTimeStr = `${String(startDate.getUTCHours()).padStart(2, '0')}:${String(startDate.getUTCMinutes()).padStart(2, '0')}`
 
@@ -130,21 +125,17 @@ export default function RenterSpaceBookingPage({
     [params?.spaceId, space]
   )
 
-  // Fetch slots when date changes
   useEffect(() => {
     fetchAvailability(selectedDate)
   }, [selectedDate, fetchAvailability])
 
-  // Callback for SSE updates - wrapped in useCallback to avoid reconnections
+ 
   const handleSlotStreamUpdate = useCallback(() => {
-    // Refetch availability when we get an SSE event
     fetchAvailability(selectedDate)
   }, [selectedDate, fetchAvailability])
 
-  // Connect to SSE stream for real-time updates
   useSlotStream(params?.spaceId || '', handleSlotStreamUpdate)
 
-  // Date constraints
   const today = new Date()
   const maxDate = new Date()
   maxDate.setDate(maxDate.getDate() + 30)
@@ -152,7 +143,6 @@ export default function RenterSpaceBookingPage({
   const handleSlotClick = (slot: RenterSlot) => {
     if (!slot.isAvailable || !params) return
 
-    // Navigate to checkout with slot info
     const dateStr = formatDate(selectedDate)
     const startTime = parseDateTime(dateStr, slot.startTime).toISOString()
     const endTime = parseDateTime(dateStr, slot.endTime).toISOString()
@@ -183,11 +173,11 @@ export default function RenterSpaceBookingPage({
     return notFound()
   }
 
-  const displayPrice = (space.hourlyRate / 100).toFixed(2)
+  const displayPrice = (space.hourlyRate).toFixed(2)
 
   return (
     <div className="min-h-screen bg-paper">
-      {/* Header with back button */}
+      
       <div className="sticky top-0 z-10 bg-paper border-b border-border">
         <div className="max-w-4xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between gap-4">
@@ -206,7 +196,7 @@ export default function RenterSpaceBookingPage({
 
       {/* Main content */}
       <div className="max-w-4xl mx-auto px-6 py-8">
-        {/* Space info */}
+        
         <div className="mb-8 pb-6 border-b border-border">
           <h1 className="text-2xl font-semibold text-ink mb-2">{space.name}</h1>
           <div className="flex flex-wrap items-center gap-4 text-sm text-text-secondary">
@@ -240,14 +230,12 @@ export default function RenterSpaceBookingPage({
           />
         </div>
 
-        {/* Error state */}
         {error && (
           <div className="mb-6 p-4 bg-error/10 border border-error rounded-sharp text-error text-sm">
             {error}
           </div>
         )}
 
-        {/* Loading state */}
         {isLoadingSlots ? (
           <div className="space-y-4">
             <div className="h-8 bg-surface-elevated rounded-sharp w-32 animate-pulse" />

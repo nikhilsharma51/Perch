@@ -2,7 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
-import { api } from '@/lib/api'
+import { api, ApiError } from '@/lib/api'
+import { classifyError } from '@/lib/errors'
+import { ErrorBanner } from '@/components/ui/ErrorBanner'
+import { PermissionDenied } from '@/components/ui/PermissionDenied'
 import Link from 'next/link'
 import {
   CalendarBlank,
@@ -27,6 +30,8 @@ interface BookingResponse {
   updatedAt: string
 }
 
+type ErrorState = 'network' | 'forbidden' | null
+
 const SKELETON_ROWS = 4
 const ROW_HEIGHT = 64
 
@@ -35,6 +40,7 @@ export default function DashboardPage() {
   const [bookings, setBookings] = useState<BookingResponse[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [errorType, setErrorType] = useState<ErrorState>(null)
 
   useEffect(() => {
     // Wait for auth context to finish loading
@@ -56,15 +62,23 @@ export default function DashboardPage() {
     const fetchBookings = async () => {
       try {
         setError(null)
+        setErrorType(null)
         const today = new Date()
         const dateStr = today.toISOString().split('T')[0]
 
         const response = await api.bookings.listByOrg(user.orgId as string, dateStr)
         setBookings(response.bookings)
       } catch (err) {
-        console.error('Failed to fetch bookings:', err)
+        const errorClass = classifyError(err)
+        setErrorType(errorClass === 'network' ? 'network' : errorClass === 'forbidden' ? 'forbidden' : null)
         setError(
-          err instanceof Error ? err.message : 'Failed to load bookings'
+          errorClass === 'network'
+            ? 'Could not connect to the server'
+            : errorClass === 'forbidden'
+              ? 'You do not have access to this resource'
+              : err instanceof ApiError
+                ? err.message
+                : 'Failed to load bookings'
         )
         setBookings([])
       } finally {
@@ -205,6 +219,16 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {/* Network error banner */}
+      {errorType === 'network' && <ErrorBanner />}
+
+      {/* Permission denied */}
+      {errorType === 'forbidden' && (
+        <div className="mb-6">
+          <PermissionDenied />
+        </div>
+      )}
+
       {/* Loading skeleton */}
       {isLoading && (
         <div className="bg-surface border border-border rounded-sharp p-4 divide-y divide-border/60">
@@ -228,7 +252,7 @@ export default function DashboardPage() {
       )}
 
       {/* Error state */}
-      {!isLoading && error && (
+      {!isLoading && !errorType && error && (
         <div className="bg-error/10 border border-error/20 rounded-sharp p-5 text-error text-sm">
           <div className="flex items-start gap-3">
             <WarningCircle size={20} weight="regular" className="flex-shrink-0 mt-0.5" />

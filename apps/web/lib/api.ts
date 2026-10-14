@@ -9,6 +9,29 @@ import type {
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
+/**
+ * ApiError class represents all API-related errors.
+ * Used by error handling middleware to classify and display errors appropriately.
+ */
+export class ApiError extends Error {
+  status: number;
+  fieldErrors?: Record<string, string[]>;
+  isNetworkError: boolean;
+
+  constructor(
+    message: string,
+    status: number,
+    fieldErrors?: Record<string, string[]>,
+    isNetworkError: boolean = false
+  ) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.fieldErrors = fieldErrors;
+    this.isNetworkError = isNetworkError;
+  }
+}
+
 export async function apiFetch<T = any>(
   path: string,
   options: RequestInit = {}
@@ -25,15 +48,27 @@ export async function apiFetch<T = any>(
     baseUrl: BASE_URL,
     fullUrl: `${BASE_URL}${path}`
   });
-      
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...options.headers,
-    },
-  });
+
+  let res: Response;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+    });
+  } catch (err) {
+    // Network error (fetch threw)
+    const networkError = new ApiError(
+      "Network error",
+      0,
+      undefined,
+      true
+    );
+    throw networkError;
+  }
 
   console.log('[apiFetch] Response:', {
     path,
@@ -44,13 +79,15 @@ export async function apiFetch<T = any>(
 
   if (res.status === 401) {
     console.log('[apiFetch] 401 Unauthorized - clearing token and redirecting');
-    localStorage.removeItem("perch_token");
-    window.location.href = "/auth/login";
-    throw new Error("Unauthorized");
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("perch_token");
+      window.location.href = "/auth/login";
+    }
+    throw new ApiError("Unauthorized", 401);
   }
 
   if (!res.ok) {
-    let errorData;
+    let errorData: any;
     try {
       errorData = await res.json();
       console.log('[apiFetch] Error response body:', errorData);
@@ -59,7 +96,16 @@ export async function apiFetch<T = any>(
       errorData = { error: "Request failed" };
     }
 
-    throw new Error(errorData.error || "Request failed");
+    // Extract field errors from 400 responses (Zod flatten() format)
+    const fieldErrors = res.status === 400 && errorData.details?.fieldErrors
+      ? errorData.details.fieldErrors
+      : undefined;
+
+    throw new ApiError(
+      errorData.error || "Request failed",
+      res.status,
+      fieldErrors
+    );
   }
 
   return res.json();
@@ -88,18 +134,6 @@ interface OrganizationCreateResponse {
 interface OrganizationsResponse {
   organizations: Organization[]
   count: number
-}
-
-interface Space {
-  id: string
-  orgId: string
-  name: string
-  type: 'podcast' | 'photography' | 'gaming'
-  hourlyRate: number
-  depositRate: number
-  capacity: number
-  imageUrl?: string
-  createdAt: string
 }
 
 interface SpaceCreateResponse {
@@ -141,6 +175,18 @@ interface BookingsListResponse {
   count: number
 }
 
+interface Space {
+  id: string
+  orgId: string
+  name: string
+  type: 'podcast' | 'photography' | 'gaming'
+  hourlyRate: number
+  depositRate: number
+  capacity: number
+  imageUrl?: string
+  createdAt: string
+}
+
 interface StaffMember {
   membershipId: string
   userId: string
@@ -155,7 +201,7 @@ interface StaffListResponse {
   count: number
 }
 
-export type { StaffMember, StaffListResponse, Space }
+export type { Space, StaffMember, StaffListResponse }
 
 export async function getAvailability(
   spaceId: string,

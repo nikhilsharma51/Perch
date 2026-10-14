@@ -95,11 +95,13 @@ export default async function StudioPage({ params }: StudioPageProps) {
 interface SpaceCardProps {
   space: Space
   slug: string
+  hourlyRate: number
+  depositRate: number
 }
 
 function SpaceCard({ space, slug }: SpaceCardProps) {
-  const hourlyRate = space.hourlyRate / 100
-  const depositAmount = space.depositRate / 100
+  const hourlyRate = space.hourlyRate
+  const depositAmount = space.depositRate
 
   const typeColors: Record<string, { bg: string; text: string }> = {
     podcast: { bg: 'bg-info/10', text: 'text-info' },
